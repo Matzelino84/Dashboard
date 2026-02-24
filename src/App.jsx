@@ -1,9 +1,16 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { CheckCircle2, Circle, Calendar as CalendarIcon, UploadCloud, Plus, Trash2, ChevronDown, ChevronUp, Users, Building, FileText, Wrench, AlertCircle, ShieldCheck, Sun, Moon, Menu, X, Briefcase, Download, Eye, Receipt, MessageSquare, Paperclip, RefreshCw, User, Phone, Mail } from 'lucide-react';
+import { CheckCircle2, Circle, Calendar as CalendarIcon, UploadCloud, Plus, Trash2, ChevronDown, ChevronUp, Users, Building, FileText, Wrench, AlertCircle, ShieldCheck, Sun, Moon, Menu, X, Briefcase, Download, Eye, Receipt, MessageSquare, Paperclip, RefreshCw, User, Phone, Mail, LogOut, Lock } from 'lucide-react';
 import { supabase } from './supabaseClient';
 
 export default function App() {
-  // --- STATE MANAGEMENT ---
+  // --- AUTH STATE ---
+  const [session, setSession] = useState(null);
+  const [authEmail, setAuthEmail] = useState('');
+  const [authPassword, setAuthPassword] = useState('');
+  const [authLoading, setAuthLoading] = useState(false);
+  const [authError, setAuthError] = useState('');
+
+  // --- APP STATE MANAGEMENT ---
   const [isDark, setIsDark] = useState(true); 
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [previewFile, setPreviewFile] = useState(null); 
@@ -42,9 +49,39 @@ export default function App() {
   const completedSteps = progressSteps.filter(Boolean).length;
   const progressPercentage = Math.round((completedSteps / 7) * 100) || 0;
 
+  // --- AUTH EFFEKTE ---
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  const handleLogin = async (e) => {
+    e.preventDefault();
+    setAuthLoading(true);
+    setAuthError('');
+    const { error } = await supabase.auth.signInWithPassword({
+      email: authEmail,
+      password: authPassword,
+    });
+    if (error) setAuthError('Login fehlgeschlagen. Bitte Zugangsdaten prüfen.');
+    setAuthLoading(false);
+  };
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+  };
+
   // --- AUTO-SYNC MIT DATENBANK ---
   useEffect(() => {
-    if (isInitialLoad) { setIsInitialLoad(false); return; }
+    // Nur synchronisieren, wenn wir eingeloggt sind und die Initiale Ladephase vorbei ist
+    if (!session || isInitialLoad) { setIsInitialLoad(false); return; }
     if (!companyName || companyName === 'Neues Projekt') return;
 
     setSyncStatus('saving');
@@ -85,14 +122,17 @@ export default function App() {
       }
     }, 1500); 
     return () => clearTimeout(timer);
-  }, [companyName, customerData, contacts, orderDetails, software, repairsApproved, meterInfo, vehicles, employees, tasks, lvItems, notes, kickoffDate, progressPercentage, isReadyToStart, files, extraFiles]);
+  }, [companyName, customerData, contacts, orderDetails, software, repairsApproved, meterInfo, vehicles, employees, tasks, lvItems, notes, kickoffDate, progressPercentage, isReadyToStart, files, extraFiles, session]);
 
   const fetchProjectsFromSupabase = async () => {
+    if (!session) return;
     const { data } = await supabase.from('projects').select('id, company_name, progress_percentage, is_ready_to_start').order('updated_at', { ascending: false });
     if (data) setProjectsList(data);
   };
 
-  useEffect(() => { fetchProjectsFromSupabase(); }, []);
+  useEffect(() => { 
+    if(session) fetchProjectsFromSupabase(); 
+  }, [session]);
 
   const loadProject = async (id) => {
     setIsSidebarOpen(false);
@@ -126,35 +166,26 @@ export default function App() {
     e.stopPropagation(); 
     
     if(window.confirm("Projekt wirklich löschen? ACHTUNG: Alle verknüpften Dateien werden endgültig aus der Cloud gelöscht!")) {
-      
-      // 1. Zuerst holen wir uns alle Datei-Infos des Projekts aus der Datenbank
       const { data: project } = await supabase.from('projects').select('files, extra_files').eq('id', id).single();
-      
       let pathsToDelete = [];
 
-      // 2. Wir sammeln die Cloud-Pfade der Haupt-Dateien
       if (project?.files) {
         if (project.files.datensatz?.path) pathsToDelete.push(project.files.datensatz.path);
         if (project.files.ankuendigung?.path) pathsToDelete.push(project.files.ankuendigung.path);
         if (project.files.auftragsdokument?.path) pathsToDelete.push(project.files.auftragsdokument.path);
       }
 
-      // 3. Wir sammeln die Cloud-Pfade der extra hochgeladenen Dokumente
       if (project?.extra_files && Array.isArray(project.extra_files)) {
         project.extra_files.forEach(file => {
           if (file.path) pathsToDelete.push(file.path);
         });
       }
 
-      // 4. Wir löschen alle gesammelten Dateien physisch aus dem Supabase Storage
       if (pathsToDelete.length > 0) {
         await supabase.storage.from('project-files').remove(pathsToDelete);
       }
 
-      // 5. Erst NACHDEM die Dateien weg sind, löschen wir das Projekt aus der Datenbank
       await supabase.from('projects').delete().eq('id', id);
-      
-      // 6. UI aufräumen
       if(currentProjectId === id) resetToNewProject();
       fetchProjectsFromSupabase();
     }
@@ -169,7 +200,6 @@ export default function App() {
 
   const addEmployee = () => { if (newEmployee.trim() !== '' && !employees.includes(newEmployee.trim())) { setEmployees([...employees, newEmployee.trim()]); setNewEmployee(''); setTasks(prev => ({ ...prev, mitarbeiter: true })); } };
   const removeEmployee = (empToRemove) => { const updated = employees.filter(emp => emp !== empToRemove); setEmployees(updated); if(updated.length === 0) setTasks(prev => ({ ...prev, mitarbeiter: false })); };
-
 
   // --- ECHTER DATEI UPLOAD IN DIE CLOUD ---
   const handleFileUpload = async (taskKey, e) => {
@@ -271,6 +301,73 @@ export default function App() {
     hover3D: 'transition-all duration-300 hover:-translate-y-2 hover:shadow-2xl',
   };
 
+  // ==========================================
+  // LOGIN SCREEN (Wird gezeigt, wenn nicht eingeloggt)
+  // ==========================================
+  if (!session) {
+    return (
+      <div className={`min-h-screen ${theme.bg} ${theme.text} font-sans flex items-center justify-center p-4 transition-colors duration-500`}>
+        <div className={`${theme.card} p-8 rounded-3xl w-full max-w-md relative overflow-hidden`}>
+          <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-green-400 to-blue-500"></div>
+          <div className="flex flex-col items-center mb-8 mt-4">
+            <div className={`p-4 rounded-full mb-4 ${isDark ? 'bg-[#121212] shadow-[inset_4px_4px_8px_rgba(0,0,0,0.5)]' : 'bg-[#e0e5ec] shadow-[inset_4px_4px_8px_rgba(163,177,198,0.6)]'}`}>
+              <Lock size={32} className="text-green-500" />
+            </div>
+            <h2 className={`text-2xl font-black ${theme.title}`}>Projekt Portal</h2>
+            <p className="text-sm opacity-60 mt-2">Bitte melde dich an, um fortzufahren</p>
+          </div>
+
+          <form onSubmit={handleLogin} className="space-y-4">
+            {authError && (
+              <div className="bg-red-500/10 border border-red-500/50 text-red-500 text-sm p-3 rounded-xl flex items-center gap-2">
+                <AlertCircle size={16} /> {authError}
+              </div>
+            )}
+            
+            <div className="relative">
+              <User size={18} className="absolute left-3 top-1/2 transform -translate-y-1/2 opacity-50" />
+              <input 
+                type="email" 
+                placeholder="E-Mail Adresse" 
+                value={authEmail} 
+                onChange={(e) => setAuthEmail(e.target.value)}
+                required
+                className={`w-full ${theme.input} rounded-xl pl-10 pr-4 py-3 outline-none`} 
+              />
+            </div>
+            
+            <div className="relative">
+              <Lock size={18} className="absolute left-3 top-1/2 transform -translate-y-1/2 opacity-50" />
+              <input 
+                type="password" 
+                placeholder="Passwort" 
+                value={authPassword} 
+                onChange={(e) => setAuthPassword(e.target.value)}
+                required
+                className={`w-full ${theme.input} rounded-xl pl-10 pr-4 py-3 outline-none`} 
+              />
+            </div>
+
+            <button 
+              type="submit" 
+              disabled={authLoading}
+              className="w-full bg-green-600 hover:bg-green-500 text-white font-bold py-3 rounded-xl transition-all hover:-translate-y-1 shadow-lg disabled:opacity-50 disabled:hover:translate-y-0 mt-4"
+            >
+              {authLoading ? 'Lade...' : 'Anmelden'}
+            </button>
+          </form>
+          
+          <button onClick={() => setIsDark(!isDark)} className="absolute top-4 right-4 p-2 opacity-50 hover:opacity-100 transition-opacity">
+            {isDark ? <Sun size={20} /> : <Moon size={20} />}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // ==========================================
+  // MAIN APP (Wird gezeigt, wenn eingeloggt)
+  // ==========================================
   return (
     <div className={`min-h-screen ${theme.bg} ${theme.text} font-sans selection:bg-green-500/30 transition-colors duration-500 relative`}>
       
@@ -342,9 +439,14 @@ export default function App() {
               </div>
               
               <div className="flex flex-col items-end gap-3 flex-shrink-0">
-                 <button onClick={() => setIsDark(!isDark)} className={`p-3 rounded-full transition-all duration-300 ${isDark ? 'bg-[#2a2a2a] text-yellow-400 shadow-[inset_2px_2px_5px_rgba(0,0,0,0.5)]' : 'bg-white text-gray-800 shadow-[5px_5px_10px_rgba(163,177,198,0.5),-5px_-5px_10px_rgba(255,255,255,0.8)]'}`}>
-                   {isDark ? <Sun size={24} /> : <Moon size={24} />}
-                 </button>
+                 <div className="flex items-center gap-2">
+                   <button onClick={() => setIsDark(!isDark)} className={`p-3 rounded-full transition-all duration-300 hover:scale-110 ${isDark ? 'bg-[#2a2a2a] text-yellow-400 shadow-[inset_2px_2px_5px_rgba(0,0,0,0.5)]' : 'bg-white text-gray-800 shadow-[5px_5px_10px_rgba(163,177,198,0.5),-5px_-5px_10px_rgba(255,255,255,0.8)]'}`} title="Theme wechseln">
+                     {isDark ? <Sun size={20} /> : <Moon size={20} />}
+                   </button>
+                   <button onClick={handleLogout} className={`p-3 rounded-full transition-all duration-300 hover:scale-110 hover:text-red-500 ${isDark ? 'bg-[#2a2a2a] text-gray-400 shadow-[inset_2px_2px_5px_rgba(0,0,0,0.5)]' : 'bg-white text-gray-600 shadow-[5px_5px_10px_rgba(163,177,198,0.5),-5px_-5px_10px_rgba(255,255,255,0.8)]'}`} title="Abmelden">
+                     <LogOut size={20} />
+                   </button>
+                 </div>
                  
                  <div className={`flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest px-3 py-1 rounded-full border ${isDark ? 'bg-[#121212] border-[#333]' : 'bg-white border-gray-300'}`}>
                     {syncStatus === 'saving' ? (
