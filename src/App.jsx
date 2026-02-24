@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { CheckCircle2, Circle, Calendar as CalendarIcon, UploadCloud, Plus, Trash2, ChevronDown, ChevronUp, Users, Building, FileText, Wrench, AlertCircle, ShieldCheck, Sun, Moon, Menu, X, Briefcase, Download, Eye, Receipt, MessageSquare, Paperclip, RefreshCw, User, Phone, Mail, LogOut, Lock } from 'lucide-react';
+import { CheckCircle2, Circle, Calendar as CalendarIcon, UploadCloud, Plus, Trash2, ChevronDown, ChevronUp, Users, Building, FileText, Wrench, AlertCircle, ShieldCheck, Sun, Moon, Menu, X, Briefcase, Download, Eye, Receipt, MessageSquare, Paperclip, RefreshCw, User, Phone, Mail, LogOut, Lock, Car, IdCard, MapPin, Map } from 'lucide-react';
 import { supabase } from './supabaseClient';
 
 export default function App() {
@@ -308,7 +308,6 @@ export default function App() {
           <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-green-400 to-blue-500"></div>
           <div className="flex flex-col items-center mb-8 mt-4">
             
-            {/* LOGO STATT SCHLOSS */}
             <div className={`p-5 rounded-full mb-4 flex items-center justify-center ${isDark ? 'bg-[#121212] shadow-[inset_4px_4px_8px_rgba(0,0,0,0.5)]' : 'bg-[#e0e5ec] shadow-[inset_4px_4px_8px_rgba(163,177,198,0.6)]'}`}>
               <img src="/Messtex_Icon_Logo_RGB.png" alt="Messtex Logo" className="h-12 w-12 object-contain" />
             </div>
@@ -400,12 +399,9 @@ export default function App() {
       {/* SIDEBAR MENÜ */}
       <div className={`fixed top-0 left-0 h-full w-80 z-50 transform transition-transform duration-500 ease-[cubic-bezier(0.4,0,0.2,1)] ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} ${isDark ? 'bg-[#1a1a1a] border-r border-[#333] shadow-[10px_0_30px_rgba(0,0,0,0.8)]' : 'bg-[#e0e5ec] border-r border-white shadow-[10px_0_30px_rgba(163,177,198,0.5)]'}`}>
         <div className="p-6 flex justify-between items-center border-b border-gray-500/20">
-          
-          {/* LOGO IN DER SIDEBAR */}
           <h2 className={`text-xl font-bold flex items-center gap-3 ${theme.title}`}>
             <img src="/Messtex_Icon_Logo_RGB.png" alt="Logo" className="h-6 w-6 object-contain" /> Alle Projekte
           </h2>
-          
           <button onClick={() => setIsSidebarOpen(false)} className={`p-2 rounded-full transition-colors hover:scale-110 ${isDark ? 'hover:bg-[#333] text-gray-400' : 'hover:bg-white text-gray-600'}`}><X size={24} /></button>
         </div>
         <div className="p-4 space-y-4 overflow-y-auto h-[calc(100vh-80px)] custom-scrollbar">
@@ -440,10 +436,7 @@ export default function App() {
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
               <div className="flex items-center gap-4 w-full">
                 <button onClick={() => setIsSidebarOpen(true)} className={`p-3 rounded-2xl flex-shrink-0 transition-all duration-300 hover:scale-105 ${isDark ? 'bg-[#2a2a2a] text-white shadow-[inset_2px_2px_5px_rgba(0,0,0,0.5)]' : 'bg-white text-gray-800 shadow-[5px_5px_10px_rgba(163,177,198,0.5),-5px_-5px_10px_rgba(255,255,255,0.8)]'}`}><Menu size={28} /></button>
-                
-                {/* LOGO IM HEADER */}
                 <img src="/Messtex_Icon_Logo_RGB.png" alt="Logo" className="h-10 w-10 md:h-12 md:w-12 object-contain hidden sm:block drop-shadow-lg" />
-                
                 <input type="text" value={companyName} onChange={(e) => setCompanyName(e.target.value)} className={`text-4xl md:text-6xl lg:text-7xl font-extrabold bg-transparent border-none outline-none w-full truncate ${isDark ? 'text-white' : 'text-gray-800 drop-shadow-md'}`} placeholder="Firmenname..." />
               </div>
               
@@ -492,11 +485,25 @@ export default function App() {
                 <h2 className={`${theme.title} text-xl font-bold mb-6 flex items-center gap-2 border-b ${isDark ? 'border-[#333]' : 'border-gray-300'} pb-3`}>
                   <Building className="text-blue-500 drop-shadow-md" /> Kundenstammdaten
                 </h2>
+                
+                {/* NEUE ICONS FÜR KUNDENSTAMMDATEN */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-                  <input type="text" placeholder="Straße & Hausnummer" value={customerData.street} onChange={e => setCustomerData({...customerData, street: e.target.value})} className={`${theme.input} rounded-xl p-3 outline-none transition-all`} />
-                  <input type="text" placeholder="PLZ & Ort" value={customerData.city} onChange={e => setCustomerData({...customerData, city: e.target.value})} className={`${theme.input} rounded-xl p-3 outline-none transition-all`} />
-                  <input type="text" placeholder="Telefon" value={customerData.phone} onChange={e => setCustomerData({...customerData, phone: e.target.value})} className={`${theme.input} rounded-xl p-3 outline-none transition-all`} />
-                  <input type="email" placeholder="E-Mail" value={customerData.email} onChange={e => setCustomerData({...customerData, email: e.target.value})} className={`${theme.input} rounded-xl p-3 outline-none transition-all`} />
+                  <div className="relative">
+                    <MapPin size={16} className="absolute left-3 top-1/2 transform -translate-y-1/2 opacity-50" />
+                    <input type="text" placeholder="Straße & Hausnummer" value={customerData.street} onChange={e => setCustomerData({...customerData, street: e.target.value})} className={`w-full ${theme.input} border rounded-xl pl-9 pr-3 py-3 outline-none transition-all`} />
+                  </div>
+                  <div className="relative">
+                    <Map size={16} className="absolute left-3 top-1/2 transform -translate-y-1/2 opacity-50" />
+                    <input type="text" placeholder="PLZ & Ort" value={customerData.city} onChange={e => setCustomerData({...customerData, city: e.target.value})} className={`w-full ${theme.input} border rounded-xl pl-9 pr-3 py-3 outline-none transition-all`} />
+                  </div>
+                  <div className="relative">
+                    <Phone size={16} className="absolute left-3 top-1/2 transform -translate-y-1/2 opacity-50" />
+                    <input type="text" placeholder="Telefon" value={customerData.phone} onChange={e => setCustomerData({...customerData, phone: e.target.value})} className={`w-full ${theme.input} border rounded-xl pl-9 pr-3 py-3 outline-none transition-all`} />
+                  </div>
+                  <div className="relative">
+                    <Mail size={16} className="absolute left-3 top-1/2 transform -translate-y-1/2 opacity-50" />
+                    <input type="email" placeholder="E-Mail" value={customerData.email} onChange={e => setCustomerData({...customerData, email: e.target.value})} className={`w-full ${theme.input} border rounded-xl pl-9 pr-3 py-3 outline-none transition-all`} />
+                  </div>
                 </div>
 
                 <div className="mt-8">
@@ -662,7 +669,9 @@ export default function App() {
                         {vehicles.length > 0 && (
                           <div className="flex flex-wrap gap-1 sm:ml-4">
                             {vehicles.slice(0, 3).map(v => (
-                              <span key={v} className={`text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full border ${isDark ? 'bg-[#121212] border-[#444] text-gray-300' : 'bg-white border-gray-300 text-gray-600'}`}>{v}</span>
+                              <span key={v} className={`flex items-center gap-1 text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full border ${isDark ? 'bg-[#121212] border-[#444] text-gray-300' : 'bg-white border-gray-300 text-gray-600'}`}>
+                                <Car size={10} /> {v}
+                              </span>
                             ))}
                             {vehicles.length > 3 && (
                               <span className={`text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full border ${isDark ? 'bg-[#121212] border-[#444] text-gray-300' : 'bg-white border-gray-300 text-gray-600'}`}>+{vehicles.length - 3}</span>
@@ -675,13 +684,17 @@ export default function App() {
                     {expandedCard === 'park' && (
                       <div className={`p-4 border-t ${isDark ? 'border-[#333] bg-[#1a1a1a]' : 'border-gray-200 bg-gray-50'}`}>
                         <div className="flex gap-2 mb-4">
-                          <input type="text" placeholder="Kennzeichen (z.B. M-AB 123)" value={newVehicle} onChange={e => setNewVehicle(e.target.value)} onKeyDown={e => e.key === 'Enter' && addVehicle()} className={`flex-1 ${theme.input} border rounded-xl p-2 text-sm outline-none`} />
+                          <div className="relative flex-1">
+                            <Car size={16} className="absolute left-3 top-1/2 transform -translate-y-1/2 opacity-50" />
+                            <input type="text" placeholder="Kennzeichen (z.B. M-AB 123)" value={newVehicle} onChange={e => setNewVehicle(e.target.value)} onKeyDown={e => e.key === 'Enter' && addVehicle()} className={`w-full ${theme.input} border rounded-xl pl-9 pr-3 py-2 text-sm outline-none`} />
+                          </div>
                           <button onClick={addVehicle} className="bg-green-600 hover:bg-green-500 text-white px-4 rounded-xl text-sm font-bold transition-colors">Hinzufügen</button>
                         </div>
                         <div className="flex flex-wrap gap-2">
                           {vehicles.map((v, i) => (
                              <span key={i} className={`flex items-center gap-1 border px-3 py-1 rounded-md text-xs font-mono font-bold group ${isDark ? 'border-[#444] bg-[#222]' : 'border-gray-300 bg-white'}`}>
-                               {v} <button onClick={() => removeVehicle(v)} className="opacity-50 hover:opacity-100 hover:text-red-500 ml-1"><X size={12}/></button>
+                               <Car size={12} className="opacity-70" /> {v} 
+                               <button onClick={() => removeVehicle(v)} className="opacity-50 hover:opacity-100 hover:text-red-500 ml-1"><X size={12}/></button>
                              </span>
                           ))}
                         </div>
@@ -700,7 +713,9 @@ export default function App() {
                         {employees.length > 0 && (
                           <div className="flex flex-wrap gap-1 sm:ml-4">
                             {employees.slice(0, 3).map(emp => (
-                              <span key={emp} className={`text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full border flex items-center gap-1 ${isDark ? 'bg-[#121212] border-[#444] text-gray-300' : 'bg-white border-gray-300 text-gray-600'}`}><Users size={10}/> {emp}</span>
+                              <span key={emp} className={`flex items-center gap-1 text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full border ${isDark ? 'bg-[#121212] border-[#444] text-gray-300' : 'bg-white border-gray-300 text-gray-600'}`}>
+                                <IdCard size={10} /> {emp}
+                              </span>
                             ))}
                             {employees.length > 3 && (
                               <span className={`text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full border ${isDark ? 'bg-[#121212] border-[#444] text-gray-300' : 'bg-white border-gray-300 text-gray-600'}`}>+{employees.length - 3}</span>
@@ -713,13 +728,16 @@ export default function App() {
                     {expandedCard === 'mitarbeiter' && (
                       <div className={`p-4 border-t ${isDark ? 'border-[#333] bg-[#1a1a1a]' : 'border-gray-200 bg-gray-50'}`}>
                         <div className="flex gap-2 mb-4">
-                          <input type="text" placeholder="Name des Mitarbeiters" value={newEmployee} onChange={e => setNewEmployee(e.target.value)} onKeyDown={e => e.key === 'Enter' && addEmployee()} className={`flex-1 ${theme.input} border rounded-xl p-2 text-sm outline-none`} />
+                          <div className="relative flex-1">
+                            <IdCard size={16} className="absolute left-3 top-1/2 transform -translate-y-1/2 opacity-50" />
+                            <input type="text" placeholder="Name des Mitarbeiters" value={newEmployee} onChange={e => setNewEmployee(e.target.value)} onKeyDown={e => e.key === 'Enter' && addEmployee()} className={`w-full ${theme.input} border rounded-xl pl-9 pr-3 py-2 text-sm outline-none`} />
+                          </div>
                           <button onClick={addEmployee} className="bg-green-600 hover:bg-green-500 text-white px-4 rounded-xl text-sm font-bold transition-colors">Hinzufügen</button>
                         </div>
                         <div className="flex flex-wrap gap-2">
                           {employees.map((emp, i) => (
                              <span key={i} className={`flex items-center gap-1 border px-3 py-1 rounded-md text-xs font-bold group ${isDark ? 'border-[#444] bg-[#222]' : 'border-gray-300 bg-white'}`}>
-                               <Users size={12}/> {emp} 
+                               <IdCard size={12} className="opacity-70" /> {emp} 
                                <button onClick={() => removeEmployee(emp)} className="opacity-50 hover:opacity-100 hover:text-red-500 ml-1"><X size={12}/></button>
                              </span>
                           ))}
