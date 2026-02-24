@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { CheckCircle2, Circle, Calendar as CalendarIcon, UploadCloud, Plus, Trash2, ChevronDown, ChevronUp, Users, Building, FileText, Wrench, AlertCircle, ShieldCheck, Sun, Moon, Menu, X, Briefcase, Download, Eye, Receipt, MessageSquare, Paperclip, RefreshCw, User, Phone, Mail, LogOut, Lock, Car, IdCard, MapPin, Map } from 'lucide-react';
+import { CheckCircle2, Circle, Calendar as CalendarIcon, UploadCloud, Plus, Trash2, ChevronDown, ChevronUp, Users, Building, FileText, Wrench, AlertCircle, Sun, Moon, Menu, X, Briefcase, Download, Eye, Receipt, MessageSquare, Paperclip, RefreshCw, User, Phone, Mail, LogOut, Lock, Car, IdCard, MapPin, Map, Package } from 'lucide-react';
 import { supabase } from './supabaseClient';
 
 export default function App() {
@@ -24,7 +24,13 @@ export default function App() {
   const [companyName, setCompanyName] = useState('Neues Projekt');
   const [customerData, setCustomerData] = useState({ street: '', city: '', phone: '', email: '' });
   const [contacts, setContacts] = useState([{ id: 1, name: '', position: '', phone: '', email: '' }]);
-  const [orderDetails, setOrderDetails] = useState({ quantity: '', conditions: '', eichaustausch: false, funkumruestung: false, other: false });
+  
+  // ERWEITERT UM LAGERUNG, ALTZÄHLER UND ADRESSE
+  const [orderDetails, setOrderDetails] = useState({ 
+    quantity: '', conditions: '', eichaustausch: false, funkumruestung: false, other: false, 
+    oldMeterDisposal: null, storageLocation: null, storageAddress: '' 
+  });
+  
   const [software, setSoftware] = useState(null);
   const [repairsApproved, setRepairsApproved] = useState(null);
   const [meterInfo, setMeterInfo] = useState({ newManufacturer: '', newType: '', currentInstalled: '' });
@@ -141,7 +147,7 @@ export default function App() {
       setCompanyName(data.company_name || 'Unbekannt'); 
       setCustomerData(data.customer_data || { street: '', city: '', phone: '', email: '' }); 
       setContacts(data.contacts || [{ id: 1, name: '', position: '', phone: '', email: '' }]); 
-      setOrderDetails(data.order_details || { quantity: '', conditions: '', eichaustausch: false, funkumruestung: false, other: false }); 
+      setOrderDetails(data.order_details || { quantity: '', conditions: '', eichaustausch: false, funkumruestung: false, other: false, oldMeterDisposal: null, storageLocation: null, storageAddress: '' }); 
       setSoftware(data.software || null); 
       setRepairsApproved(data.repairs_approved ?? null); 
       setMeterInfo(data.meter_info || { newManufacturer: '', newType: '', currentInstalled: '' }); 
@@ -157,12 +163,11 @@ export default function App() {
   };
 
   const resetToNewProject = () => {
-    setCurrentProjectId(null); setCompanyName('Neues Projekt'); setCustomerData({ street: '', city: '', phone: '', email: '' }); setContacts([{ id: 1, name: '', position: '', phone: '', email: '' }]); setOrderDetails({ quantity: '', conditions: '', eichaustausch: false, funkumruestung: false, other: false }); setSoftware(null); setRepairsApproved(null); setMeterInfo({ newManufacturer: '', newType: '', currentInstalled: '' }); setVehicles([]); setEmployees([]); setTasks({ parkausweise: false, mitarbeiter: false, datensatz: false, ankuendigung: false, datenimport: false }); setLvItems([{ id: Date.now(), pos: '1.01', desc: 'Zählertausch Standard', price: '' }]); setNotes(''); setKickoffDate(''); setFiles({ datensatz: null, ankuendigung: null, auftragsdokument: null }); setExtraFiles([]); setIsSidebarOpen(false);
+    setCurrentProjectId(null); setCompanyName('Neues Projekt'); setCustomerData({ street: '', city: '', phone: '', email: '' }); setContacts([{ id: 1, name: '', position: '', phone: '', email: '' }]); setOrderDetails({ quantity: '', conditions: '', eichaustausch: false, funkumruestung: false, other: false, oldMeterDisposal: null, storageLocation: null, storageAddress: '' }); setSoftware(null); setRepairsApproved(null); setMeterInfo({ newManufacturer: '', newType: '', currentInstalled: '' }); setVehicles([]); setEmployees([]); setTasks({ parkausweise: false, mitarbeiter: false, datensatz: false, ankuendigung: false, datenimport: false }); setLvItems([{ id: Date.now(), pos: '1.01', desc: 'Zählertausch Standard', price: '' }]); setNotes(''); setKickoffDate(''); setFiles({ datensatz: null, ankuendigung: null, auftragsdokument: null }); setExtraFiles([]); setIsSidebarOpen(false);
   };
 
   const deleteProject = async (e, id) => {
     e.stopPropagation(); 
-    
     if(window.confirm("Projekt wirklich löschen? ACHTUNG: Alle verknüpften Dateien werden endgültig aus der Cloud gelöscht!")) {
       const { data: project } = await supabase.from('projects').select('files, extra_files').eq('id', id).single();
       let pathsToDelete = [];
@@ -174,15 +179,10 @@ export default function App() {
       }
 
       if (project?.extra_files && Array.isArray(project.extra_files)) {
-        project.extra_files.forEach(file => {
-          if (file.path) pathsToDelete.push(file.path);
-        });
+        project.extra_files.forEach(file => { if (file.path) pathsToDelete.push(file.path); });
       }
 
-      if (pathsToDelete.length > 0) {
-        await supabase.storage.from('project-files').remove(pathsToDelete);
-      }
-
+      if (pathsToDelete.length > 0) { await supabase.storage.from('project-files').remove(pathsToDelete); }
       await supabase.from('projects').delete().eq('id', id);
       if(currentProjectId === id) resetToNewProject();
       fetchProjectsFromSupabase();
@@ -202,28 +202,20 @@ export default function App() {
   const handleFileUpload = async (taskKey, e) => {
     const file = e.target.files[0];
     if (!file) return;
-    
     setSyncStatus('saving');
     const safeName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
     const filePath = `${currentProjectId || 'temp'}/${taskKey}/${Date.now()}_${safeName}`;
-
     const { error } = await supabase.storage.from('project-files').upload(filePath, file);
-    
     if (!error) {
       const { data } = supabase.storage.from('project-files').getPublicUrl(filePath);
-      const fileData = { name: file.name, type: file.type, url: data.publicUrl, path: filePath };
-      setFiles(prev => ({ ...prev, [taskKey]: fileData })); 
+      setFiles(prev => ({ ...prev, [taskKey]: { name: file.name, type: file.type, url: data.publicUrl, path: filePath } })); 
       if(taskKey !== 'auftragsdokument') setTasks(prev => ({ ...prev, [taskKey]: true })); 
-    } else {
-      alert("Fehler beim Datei-Upload!");
-    }
+    } else { alert("Fehler beim Datei-Upload!"); }
     setSyncStatus('saved');
   };
 
   const removeFile = async (taskKey) => { 
-    if (files[taskKey]?.path) {
-      await supabase.storage.from('project-files').remove([files[taskKey].path]);
-    }
+    if (files[taskKey]?.path) { await supabase.storage.from('project-files').remove([files[taskKey].path]); }
     setFiles(prev => ({ ...prev, [taskKey]: null })); 
     if(taskKey !== 'auftragsdokument') setTasks(prev => ({ ...prev, [taskKey]: false })); 
   };
@@ -231,14 +223,11 @@ export default function App() {
   const handleExtraFileUpload = async (e) => {
     const selectedFiles = Array.from(e.target.files);
     if (selectedFiles.length === 0) return;
-
     setSyncStatus('saving');
     const newExtraFiles = [];
-
     for (const file of selectedFiles) {
       const safeName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
       const filePath = `${currentProjectId || 'temp'}/extra/${Date.now()}_${safeName}`;
-      
       const { error } = await supabase.storage.from('project-files').upload(filePath, file);
       if (!error) {
         const { data } = supabase.storage.from('project-files').getPublicUrl(filePath);
@@ -251,18 +240,14 @@ export default function App() {
 
   const removeExtraFile = async (id) => {
     const fileToRemove = extraFiles.find(f => f.id === id);
-    if (fileToRemove?.path) {
-      await supabase.storage.from('project-files').remove([fileToRemove.path]);
-    }
+    if (fileToRemove?.path) { await supabase.storage.from('project-files').remove([fileToRemove.path]); }
     setExtraFiles(extraFiles.filter(f => f.id !== id));
   };
-
 
   const recalculateLvPositions = (items) => items.map((item, index) => ({ ...item, pos: `1.${String(index + 1).padStart(2, '0')}` }));
   const addLvItem = () => { const newItems = [...lvItems, { id: Date.now(), pos: '', desc: '', price: '' }]; setLvItems(recalculateLvPositions(newItems)); };
   const handleLvChange = (id, field, value) => { setLvItems(lvItems.map(item => item.id === id ? { ...item, [field]: value } : item)); };
   const removeLvItem = (id) => { const remainingItems = lvItems.filter(item => item.id !== id); setLvItems(recalculateLvPositions(remainingItems)); };
-
   const formatPrice = (id, value, e) => {
     if (e && e.key !== 'Enter' && e.type !== 'blur') return;
     if (!value) return;
@@ -307,11 +292,9 @@ export default function App() {
         <div className={`${theme.card} p-8 rounded-3xl w-full max-w-md relative overflow-hidden`}>
           <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-green-400 to-blue-500"></div>
           <div className="flex flex-col items-center mb-8 mt-4">
-            
             <div className={`p-5 rounded-full mb-4 flex items-center justify-center ${isDark ? 'bg-[#121212] shadow-[inset_4px_4px_8px_rgba(0,0,0,0.5)]' : 'bg-[#e0e5ec] shadow-[inset_4px_4px_8px_rgba(163,177,198,0.6)]'}`}>
               <img src="/Messtex_Icon_Logo_RGB.png" alt="Messtex Logo" className="h-12 w-12 object-contain" />
             </div>
-
             <h2 className={`text-2xl font-black ${theme.title}`}>Projekt Portal</h2>
             <p className="text-sm opacity-60 mt-2">Bitte melde dich an, um fortzufahren</p>
           </div>
@@ -322,36 +305,15 @@ export default function App() {
                 <AlertCircle size={16} /> {authError}
               </div>
             )}
-            
             <div className="relative">
               <User size={18} className="absolute left-3 top-1/2 transform -translate-y-1/2 opacity-50" />
-              <input 
-                type="email" 
-                placeholder="E-Mail Adresse" 
-                value={authEmail} 
-                onChange={(e) => setAuthEmail(e.target.value)}
-                required
-                className={`w-full ${theme.input} rounded-xl pl-10 pr-4 py-3 outline-none`} 
-              />
+              <input type="email" placeholder="E-Mail Adresse" value={authEmail} onChange={(e) => setAuthEmail(e.target.value)} required className={`w-full ${theme.input} rounded-xl pl-10 pr-4 py-3 outline-none`} />
             </div>
-            
             <div className="relative">
               <Lock size={18} className="absolute left-3 top-1/2 transform -translate-y-1/2 opacity-50" />
-              <input 
-                type="password" 
-                placeholder="Passwort" 
-                value={authPassword} 
-                onChange={(e) => setAuthPassword(e.target.value)}
-                required
-                className={`w-full ${theme.input} rounded-xl pl-10 pr-4 py-3 outline-none`} 
-              />
+              <input type="password" placeholder="Passwort" value={authPassword} onChange={(e) => setAuthPassword(e.target.value)} required className={`w-full ${theme.input} rounded-xl pl-10 pr-4 py-3 outline-none`} />
             </div>
-
-            <button 
-              type="submit" 
-              disabled={authLoading}
-              className="w-full bg-green-600 hover:bg-green-500 text-white font-bold py-3 rounded-xl transition-all hover:-translate-y-1 shadow-lg disabled:opacity-50 disabled:hover:translate-y-0 mt-4"
-            >
+            <button type="submit" disabled={authLoading} className="w-full bg-green-600 hover:bg-green-500 text-white font-bold py-3 rounded-xl transition-all hover:-translate-y-1 shadow-lg disabled:opacity-50 disabled:hover:translate-y-0 mt-4">
               {authLoading ? 'Lade...' : 'Anmelden'}
             </button>
           </form>
@@ -429,14 +391,13 @@ export default function App() {
       <div className="p-4 md:p-8 pb-24">
         <div className="max-w-7xl mx-auto space-y-8">
           
-          {/* HEADER */}
+          {/* HEADER (Ohne Logo) */}
           <div className={`${theme.card} p-8 rounded-3xl border relative overflow-hidden transition-colors duration-500 flex flex-col`}>
             <div className="absolute top-0 left-0 w-2 h-full bg-gradient-to-b from-green-400 to-green-600 shadow-[0_0_15px_rgba(34,197,94,0.5)]"></div>
             
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
               <div className="flex items-center gap-4 w-full">
                 <button onClick={() => setIsSidebarOpen(true)} className={`p-3 rounded-2xl flex-shrink-0 transition-all duration-300 hover:scale-105 ${isDark ? 'bg-[#2a2a2a] text-white shadow-[inset_2px_2px_5px_rgba(0,0,0,0.5)]' : 'bg-white text-gray-800 shadow-[5px_5px_10px_rgba(163,177,198,0.5),-5px_-5px_10px_rgba(255,255,255,0.8)]'}`}><Menu size={28} /></button>
-                <img src="/Messtex_Icon_Logo_RGB.png" alt="Logo" className="h-10 w-10 md:h-12 md:w-12 object-contain hidden sm:block drop-shadow-lg" />
                 <input type="text" value={companyName} onChange={(e) => setCompanyName(e.target.value)} className={`text-4xl md:text-6xl lg:text-7xl font-extrabold bg-transparent border-none outline-none w-full truncate ${isDark ? 'text-white' : 'text-gray-800 drop-shadow-md'}`} placeholder="Firmenname..." />
               </div>
               
@@ -485,8 +446,6 @@ export default function App() {
                 <h2 className={`${theme.title} text-xl font-bold mb-6 flex items-center gap-2 border-b ${isDark ? 'border-[#333]' : 'border-gray-300'} pb-3`}>
                   <Building className="text-blue-500 drop-shadow-md" /> Kundenstammdaten
                 </h2>
-                
-                {/* NEUE ICONS FÜR KUNDENSTAMMDATEN */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
                   <div className="relative">
                     <MapPin size={16} className="absolute left-3 top-1/2 transform -translate-y-1/2 opacity-50" />
@@ -550,6 +509,8 @@ export default function App() {
                   <Wrench className="text-orange-500 drop-shadow-md" /> Auftragsübersicht
                 </h2>
                 <div className="space-y-6">
+                  
+                  {/* ZEILE 1: Software & Reparaturen */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
                       <label className="block text-xs uppercase tracking-wider mb-2 font-bold opacity-70">Software</label>
@@ -566,6 +527,8 @@ export default function App() {
                       </div>
                     </div>
                   </div>
+                  
+                  {/* ZEILE 2: Leistungsumfang */}
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                      {['Eichaustausch', 'Funkumrüstung', 'Sonstiges'].map((item, idx) => {
                        const key = ['eichaustausch', 'funkumruestung', 'other'][idx];
@@ -577,6 +540,32 @@ export default function App() {
                        )
                      })}
                   </div>
+
+                  {/* ZEILE 3: Lagerung & Altzähler (NEU) */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
+                    <div>
+                      <label className="block text-xs uppercase tracking-wider mb-2 font-bold opacity-70">Lagerung Material</label>
+                      <div className={`flex gap-2 p-1 rounded-xl ${isDark ? 'bg-[#121212] shadow-inner' : 'bg-[#e0e5ec] shadow-[inset_3px_3px_6px_rgba(163,177,198,0.5)]'}`}>
+                        <button onClick={() => setOrderDetails({...orderDetails, storageLocation: 'messtex'})} className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${orderDetails.storageLocation === 'messtex' ? 'bg-purple-600 text-white shadow-md transform scale-105' : 'opacity-60 hover:opacity-100'}`}>Messtex</button>
+                        <button onClick={() => setOrderDetails({...orderDetails, storageLocation: 'auftraggeber'})} className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${orderDetails.storageLocation === 'auftraggeber' ? 'bg-indigo-500 text-white shadow-md transform scale-105' : 'opacity-60 hover:opacity-100'}`}>Auftraggeber</button>
+                      </div>
+                    </div>
+                    <div>
+                       <label className="block text-xs uppercase tracking-wider mb-2 font-bold opacity-70">Altzähler</label>
+                       <div className={`flex gap-2 p-1 rounded-xl ${isDark ? 'bg-[#121212] shadow-inner' : 'bg-[#e0e5ec] shadow-[inset_3px_3px_6px_rgba(163,177,198,0.5)]'}`}>
+                        <button onClick={() => setOrderDetails({...orderDetails, oldMeterDisposal: 'entsorgen'})} className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${orderDetails.oldMeterDisposal === 'entsorgen' ? 'bg-red-500 text-white shadow-md transform scale-105' : 'opacity-60 hover:opacity-100'}`}>Entsorgen</button>
+                        <button onClick={() => setOrderDetails({...orderDetails, oldMeterDisposal: 'abgeben'})} className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${orderDetails.oldMeterDisposal === 'abgeben' ? 'bg-blue-500 text-white shadow-md transform scale-105' : 'opacity-60 hover:opacity-100'}`}>Abgeben</button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* ADRESSZEILE FÜR LAGERORT (NEU) */}
+                  <div className="relative">
+                    <Package size={16} className="absolute left-3 top-1/2 transform -translate-y-1/2 opacity-50" />
+                    <input type="text" placeholder="Lagerort des Materials (Straße, PLZ, Ort)" value={orderDetails.storageAddress || ''} onChange={e => setOrderDetails({...orderDetails, storageAddress: e.target.value})} className={`w-full ${theme.input} border rounded-xl pl-9 pr-3 py-3 outline-none transition-all`} />
+                  </div>
+
+                  {/* ZEILE 4: Zählerinformationen */}
                   <div className={`p-4 rounded-2xl ${isDark ? 'bg-[#252525]' : 'bg-[#e0e5ec] shadow-[inset_4px_4px_8px_rgba(163,177,198,0.5)]'}`}>
                     <h3 className="text-sm font-bold mb-4 opacity-80">Zählerinformationen</h3>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
