@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { CheckCircle2, Circle, Calendar as CalendarIcon, UploadCloud, Plus, Trash2, ChevronDown, ChevronUp, Users, Building, FileText, Wrench, AlertCircle, ShieldCheck, Sun, Moon, Menu, X, Briefcase, Download, Eye, Receipt, MessageSquare, Paperclip, RefreshCw } from 'lucide-react';
+import { CheckCircle2, Circle, Calendar as CalendarIcon, UploadCloud, Plus, Trash2, ChevronDown, ChevronUp, Users, Building, FileText, Wrench, AlertCircle, ShieldCheck, Sun, Moon, Menu, X, Briefcase, Download, Eye, Receipt, MessageSquare, Paperclip, RefreshCw, User, Phone, Mail } from 'lucide-react';
 import { supabase } from './supabaseClient';
 
 export default function App() {
@@ -401,8 +401,22 @@ export default function App() {
                         </button>
                       )}
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        <input type="text" placeholder="Name *" value={contact.name} onChange={e => handleContactChange(contact.id, 'name', e.target.value)} className={`${theme.input} ${contact.name === '' ? '!border-red-500' : ''} border rounded-xl p-2 text-sm outline-none`} />
-                        <input type="text" placeholder="Position" value={contact.position} onChange={e => handleContactChange(contact.id, 'position', e.target.value)} className={`${theme.input} rounded-xl p-2 text-sm outline-none border`} />
+                        <div className="relative">
+                          <User size={16} className="absolute left-3 top-1/2 transform -translate-y-1/2 opacity-50" />
+                          <input type="text" placeholder="Name *" value={contact.name} onChange={e => handleContactChange(contact.id, 'name', e.target.value)} className={`w-full ${theme.input} ${contact.name === '' ? '!border-red-500' : ''} border rounded-xl pl-9 pr-3 py-2 text-sm outline-none`} />
+                        </div>
+                        <div className="relative">
+                          <Briefcase size={16} className="absolute left-3 top-1/2 transform -translate-y-1/2 opacity-50" />
+                          <input type="text" placeholder="Position" value={contact.position} onChange={e => handleContactChange(contact.id, 'position', e.target.value)} className={`w-full ${theme.input} border rounded-xl pl-9 pr-3 py-2 text-sm outline-none`} />
+                        </div>
+                        <div className="relative">
+                          <Phone size={16} className="absolute left-3 top-1/2 transform -translate-y-1/2 opacity-50" />
+                          <input type="text" placeholder="Telefon" value={contact.phone} onChange={e => handleContactChange(contact.id, 'phone', e.target.value)} className={`w-full ${theme.input} border rounded-xl pl-9 pr-3 py-2 text-sm outline-none`} />
+                        </div>
+                        <div className="relative">
+                          <Mail size={16} className="absolute left-3 top-1/2 transform -translate-y-1/2 opacity-50" />
+                          <input type="email" placeholder="E-Mail" value={contact.email} onChange={e => handleContactChange(contact.id, 'email', e.target.value)} className={`w-full ${theme.input} border rounded-xl pl-9 pr-3 py-2 text-sm outline-none`} />
+                        </div>
                       </div>
                     </div>
                   ))}
