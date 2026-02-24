@@ -80,7 +80,6 @@ export default function App() {
 
   // --- AUTO-SYNC MIT DATENBANK ---
   useEffect(() => {
-    // Nur synchronisieren, wenn wir eingeloggt sind und die Initiale Ladephase vorbei ist
     if (!session || isInitialLoad) { setIsInitialLoad(false); return; }
     if (!companyName || companyName === 'Neues Projekt') return;
 
@@ -161,7 +160,6 @@ export default function App() {
     setCurrentProjectId(null); setCompanyName('Neues Projekt'); setCustomerData({ street: '', city: '', phone: '', email: '' }); setContacts([{ id: 1, name: '', position: '', phone: '', email: '' }]); setOrderDetails({ quantity: '', conditions: '', eichaustausch: false, funkumruestung: false, other: false }); setSoftware(null); setRepairsApproved(null); setMeterInfo({ newManufacturer: '', newType: '', currentInstalled: '' }); setVehicles([]); setEmployees([]); setTasks({ parkausweise: false, mitarbeiter: false, datensatz: false, ankuendigung: false, datenimport: false }); setLvItems([{ id: Date.now(), pos: '1.01', desc: 'Zählertausch Standard', price: '' }]); setNotes(''); setKickoffDate(''); setFiles({ datensatz: null, ankuendigung: null, auftragsdokument: null }); setExtraFiles([]); setIsSidebarOpen(false);
   };
 
-  // --- PROJEKT LÖSCHEN (INKLUSIVE ALLER CLOUD-DATEIEN) ---
   const deleteProject = async (e, id) => {
     e.stopPropagation(); 
     
@@ -201,7 +199,6 @@ export default function App() {
   const addEmployee = () => { if (newEmployee.trim() !== '' && !employees.includes(newEmployee.trim())) { setEmployees([...employees, newEmployee.trim()]); setNewEmployee(''); setTasks(prev => ({ ...prev, mitarbeiter: true })); } };
   const removeEmployee = (empToRemove) => { const updated = employees.filter(emp => emp !== empToRemove); setEmployees(updated); if(updated.length === 0) setTasks(prev => ({ ...prev, mitarbeiter: false })); };
 
-  // --- ECHTER DATEI UPLOAD IN DIE CLOUD ---
   const handleFileUpload = async (taskKey, e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -302,7 +299,7 @@ export default function App() {
   };
 
   // ==========================================
-  // LOGIN SCREEN (Wird gezeigt, wenn nicht eingeloggt)
+  // LOGIN SCREEN
   // ==========================================
   if (!session) {
     return (
@@ -310,9 +307,12 @@ export default function App() {
         <div className={`${theme.card} p-8 rounded-3xl w-full max-w-md relative overflow-hidden`}>
           <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-green-400 to-blue-500"></div>
           <div className="flex flex-col items-center mb-8 mt-4">
-            <div className={`p-4 rounded-full mb-4 ${isDark ? 'bg-[#121212] shadow-[inset_4px_4px_8px_rgba(0,0,0,0.5)]' : 'bg-[#e0e5ec] shadow-[inset_4px_4px_8px_rgba(163,177,198,0.6)]'}`}>
-              <Lock size={32} className="text-green-500" />
+            
+            {/* LOGO STATT SCHLOSS */}
+            <div className={`p-5 rounded-full mb-4 flex items-center justify-center ${isDark ? 'bg-[#121212] shadow-[inset_4px_4px_8px_rgba(0,0,0,0.5)]' : 'bg-[#e0e5ec] shadow-[inset_4px_4px_8px_rgba(163,177,198,0.6)]'}`}>
+              <img src="/Messtex_Icon_Logo_RGB.png" alt="Messtex Logo" className="h-12 w-12 object-contain" />
             </div>
+
             <h2 className={`text-2xl font-black ${theme.title}`}>Projekt Portal</h2>
             <p className="text-sm opacity-60 mt-2">Bitte melde dich an, um fortzufahren</p>
           </div>
@@ -366,12 +366,12 @@ export default function App() {
   }
 
   // ==========================================
-  // MAIN APP (Wird gezeigt, wenn eingeloggt)
+  // MAIN APP
   // ==========================================
   return (
     <div className={`min-h-screen ${theme.bg} ${theme.text} font-sans selection:bg-green-500/30 transition-colors duration-500 relative`}>
       
-      {/* VORSCHAU MODAL (ABSTURZSICHER) */}
+      {/* VORSCHAU MODAL */}
       {previewFile && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[100] flex flex-col p-4 md:p-10 transition-opacity duration-300">
           <div className="flex justify-between items-center mb-4 text-white">
@@ -400,7 +400,12 @@ export default function App() {
       {/* SIDEBAR MENÜ */}
       <div className={`fixed top-0 left-0 h-full w-80 z-50 transform transition-transform duration-500 ease-[cubic-bezier(0.4,0,0.2,1)] ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} ${isDark ? 'bg-[#1a1a1a] border-r border-[#333] shadow-[10px_0_30px_rgba(0,0,0,0.8)]' : 'bg-[#e0e5ec] border-r border-white shadow-[10px_0_30px_rgba(163,177,198,0.5)]'}`}>
         <div className="p-6 flex justify-between items-center border-b border-gray-500/20">
-          <h2 className={`text-xl font-bold flex items-center gap-2 ${theme.title}`}><Briefcase size={20} className="text-green-500"/> Alle Projekte</h2>
+          
+          {/* LOGO IN DER SIDEBAR */}
+          <h2 className={`text-xl font-bold flex items-center gap-3 ${theme.title}`}>
+            <img src="/Messtex_Icon_Logo_RGB.png" alt="Logo" className="h-6 w-6 object-contain" /> Alle Projekte
+          </h2>
+          
           <button onClick={() => setIsSidebarOpen(false)} className={`p-2 rounded-full transition-colors hover:scale-110 ${isDark ? 'hover:bg-[#333] text-gray-400' : 'hover:bg-white text-gray-600'}`}><X size={24} /></button>
         </div>
         <div className="p-4 space-y-4 overflow-y-auto h-[calc(100vh-80px)] custom-scrollbar">
@@ -435,6 +440,10 @@ export default function App() {
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
               <div className="flex items-center gap-4 w-full">
                 <button onClick={() => setIsSidebarOpen(true)} className={`p-3 rounded-2xl flex-shrink-0 transition-all duration-300 hover:scale-105 ${isDark ? 'bg-[#2a2a2a] text-white shadow-[inset_2px_2px_5px_rgba(0,0,0,0.5)]' : 'bg-white text-gray-800 shadow-[5px_5px_10px_rgba(163,177,198,0.5),-5px_-5px_10px_rgba(255,255,255,0.8)]'}`}><Menu size={28} /></button>
+                
+                {/* LOGO IM HEADER */}
+                <img src="/Messtex_Icon_Logo_RGB.png" alt="Logo" className="h-10 w-10 md:h-12 md:w-12 object-contain hidden sm:block drop-shadow-lg" />
+                
                 <input type="text" value={companyName} onChange={(e) => setCompanyName(e.target.value)} className={`text-4xl md:text-6xl lg:text-7xl font-extrabold bg-transparent border-none outline-none w-full truncate ${isDark ? 'text-white' : 'text-gray-800 drop-shadow-md'}`} placeholder="Firmenname..." />
               </div>
               
