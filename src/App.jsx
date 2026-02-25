@@ -1,6 +1,11 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { CheckCircle2, Circle, Calendar as CalendarIcon, UploadCloud, Plus, Trash2, ChevronDown, ChevronUp, Users, Building, FileText, Wrench, AlertCircle, Sun, Moon, Menu, X, Briefcase, Download, Eye, Receipt, MessageSquare, Paperclip, RefreshCw, User, Phone, Mail, LogOut, Lock, Car, IdCard, MapPin, Map, Package, Home } from 'lucide-react';
+import { CheckCircle2, Circle, Calendar as CalendarIcon, UploadCloud, Plus, Trash2, ChevronDown, ChevronUp, Users, Building, FileText, Wrench, AlertCircle, Sun, Moon, Menu, X, Briefcase, Download, Eye, Receipt, MessageSquare, Paperclip, RefreshCw, User, Phone, Mail, LogOut, Lock, Car, IdCard, MapPin, Map, Package, Home, FileDown } from 'lucide-react';
 import { supabase } from './supabaseClient';
+import { jsPDF } from 'jspdf';
+
+// --- STANDARD-DATEN POOL ---
+const defaultEmployees = ['Jonas Berger', 'Valentin Pechmann', 'Vitus Berger', 'Georg Jedryka', 'Matthias Märsch'];
+const defaultVehicles = ['PAF MT 216', 'PAF MT 223', 'PAF MT 209', 'PAF MT 215'];
 
 export default function App() {
   // --- AUTH STATE ---
@@ -14,8 +19,9 @@ export default function App() {
   const [isDark, setIsDark] = useState(true); 
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [showHome, setShowHome] = useState(true); 
-  const [isTransitioning, setIsTransitioning] = useState(false); // NEU: Steuert den weichen Fade & Lift Effekt
+  const [isTransitioning, setIsTransitioning] = useState(false); 
   const [previewFile, setPreviewFile] = useState(null); 
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false); 
   
   const [currentProjectId, setCurrentProjectId] = useState(null);
   const [syncStatus, setSyncStatus] = useState('saved'); 
@@ -30,11 +36,15 @@ export default function App() {
   const [software, setSoftware] = useState(null);
   const [repairsApproved, setRepairsApproved] = useState(null);
   const [meterInfo, setMeterInfo] = useState({ newManufacturer: '', newType: '', currentInstalled: '' });
+  
   const [vehicles, setVehicles] = useState([]);
-  const [newVehicle, setNewVehicle] = useState('');
   const [employees, setEmployees] = useState([]);
+  
+  const [newVehicle, setNewVehicle] = useState('');
   const [newEmployee, setNewEmployee] = useState('');
+  
   const [tasks, setTasks] = useState({ parkausweise: false, mitarbeiter: false, datensatz: false, ankuendigung: false, datenimport: false });
+  
   const [files, setFiles] = useState({ datensatz: null, ankuendigung: null, auftragsdokument: null });
   const [lvItems, setLvItems] = useState([{ id: Date.now(), pos: '1.01', desc: 'Zählertausch Standard', price: '' }]);
   const [notes, setNotes] = useState('');
@@ -153,8 +163,10 @@ export default function App() {
       setSoftware(data.software || null); 
       setRepairsApproved(data.repairs_approved ?? null); 
       setMeterInfo(data.meter_info || { newManufacturer: '', newType: '', currentInstalled: '' }); 
-      setVehicles(data.vehicles || []); 
-      setEmployees(data.employees || []); 
+      
+      setVehicles(data.vehicles && data.vehicles.length > 0 ? data.vehicles : defaultVehicles); 
+      setEmployees(data.employees && data.employees.length > 0 ? data.employees : defaultEmployees); 
+      
       setTasks(data.tasks || { parkausweise: false, mitarbeiter: false, datensatz: false, ankuendigung: false, datenimport: false }); 
       setLvItems(data.lv_items || [{ id: Date.now(), pos: '1.01', desc: 'Zählertausch Standard', price: '' }]); 
       setNotes(data.notes || ''); 
@@ -165,16 +177,28 @@ export default function App() {
   };
 
   const resetToNewProject = () => {
-    setCurrentProjectId(null); setCompanyName('Neues Projekt'); setCustomerData({ street: '', city: '', phone: '', email: '' }); setContacts([{ id: 1, name: '', position: '', phone: '', email: '' }]); setOrderDetails({ quantity: '', conditions: '', eichaustausch: false, funkumruestung: false, other: false, oldMeterDisposal: null, storageLocation: null, storageAddress: '' }); setSoftware(null); setRepairsApproved(null); setMeterInfo({ newManufacturer: '', newType: '', currentInstalled: '' }); setVehicles([]); setEmployees([]); setTasks({ parkausweise: false, mitarbeiter: false, datensatz: false, ankuendigung: false, datenimport: false }); setLvItems([{ id: Date.now(), pos: '1.01', desc: 'Zählertausch Standard', price: '' }]); setNotes(''); setKickoffDate(''); setFiles({ datensatz: null, ankuendigung: null, auftragsdokument: null }); setExtraFiles([]);
+    setCurrentProjectId(null); 
+    setCompanyName('Neues Projekt'); 
+    setCustomerData({ street: '', city: '', phone: '', email: '' }); 
+    setContacts([{ id: 1, name: '', position: '', phone: '', email: '' }]); 
+    setOrderDetails({ quantity: '', conditions: '', eichaustausch: false, funkumruestung: false, other: false, oldMeterDisposal: null, storageLocation: null, storageAddress: '' }); 
+    setSoftware(null); 
+    setRepairsApproved(null); 
+    setMeterInfo({ newManufacturer: '', newType: '', currentInstalled: '' }); 
+    setVehicles([]); // Startet komplett leer -> Du musst die Chips erst anklicken!
+    setEmployees([]); // Startet komplett leer
+    setTasks({ parkausweise: false, mitarbeiter: false, datensatz: false, ankuendigung: false, datenimport: false }); 
+    setLvItems([{ id: Date.now(), pos: '1.01', desc: 'Zählertausch Standard', price: '' }]); 
+    setNotes(''); 
+    setKickoffDate(''); 
+    setFiles({ datensatz: null, ankuendigung: null, auftragsdokument: null }); 
+    setExtraFiles([]);
   };
 
-  // NEU: Zentrale Navigations-Funktion mit eleganter Fade & Lift Animation
   const navigateTo = (destination, id = null) => {
-    setIsSidebarOpen(false); // Sidebar auf jeden Fall zu
-    setIsTransitioning(true); // Animation Out starten
-    
+    setIsSidebarOpen(false); 
+    setIsTransitioning(true); 
     setTimeout(() => {
-      // Nach 300ms ist das Bild unsichtbar, jetzt laden wir die neuen Daten
       if (destination === 'project') {
         loadProject(id);
         setShowHome(false);
@@ -184,13 +208,8 @@ export default function App() {
       } else if (destination === 'home') {
         setShowHome(true);
       }
-      
-      // Einen winzigen Moment warten, damit React das DOM bauen kann, dann Animation In
-      setTimeout(() => {
-        setIsTransitioning(false);
-      }, 50);
-      
-    }, 300); // Dauer des Fade-Outs
+      setTimeout(() => setIsTransitioning(false), 50);
+    }, 300); 
   };
 
   const deleteProject = async (e, id) => {
@@ -198,34 +217,230 @@ export default function App() {
     if(window.confirm("Projekt wirklich löschen? ACHTUNG: Alle verknüpften Dateien werden endgültig aus der Cloud gelöscht!")) {
       const { data: project } = await supabase.from('projects').select('files, extra_files').eq('id', id).single();
       let pathsToDelete = [];
-
       if (project?.files) {
         if (project.files.datensatz?.path) pathsToDelete.push(project.files.datensatz.path);
         if (project.files.ankuendigung?.path) pathsToDelete.push(project.files.ankuendigung.path);
         if (project.files.auftragsdokument?.path) pathsToDelete.push(project.files.auftragsdokument.path);
       }
-
       if (project?.extra_files && Array.isArray(project.extra_files)) {
         project.extra_files.forEach(file => { if (file.path) pathsToDelete.push(file.path); });
       }
-
       if (pathsToDelete.length > 0) { await supabase.storage.from('project-files').remove(pathsToDelete); }
       await supabase.from('projects').delete().eq('id', id);
-      
       if(currentProjectId === id) resetToNewProject();
       fetchProjectsFromSupabase();
     }
   };
 
-  const handleAddContact = () => setContacts([...contacts, { id: Date.now(), name: '', position: '', phone: '', email: '' }]);
+  // --- KUNDEN-PDF GENERATOR ---
+  const generateCustomerPDF = async () => {
+    setIsGeneratingPdf(true);
+    try {
+      const doc = new jsPDF('p', 'mm', 'a4');
+      const pageWidth = doc.internal.pageSize.getWidth();
+
+      try {
+        const img = new Image();
+        img.src = '/Messtex_Icon_Logo_RGB.png';
+        await new Promise((resolve, reject) => {
+          img.onload = resolve;
+          img.onerror = reject;
+        });
+        doc.addImage(img, 'PNG', 15, 15, 20, 20);
+      } catch (e) {
+        console.warn('Logo konnte nicht geladen werden.');
+      }
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(22);
+      doc.setTextColor(30, 41, 59);
+      doc.text('Projekt-Onboarding', 40, 25);
+      
+      doc.setFontSize(14);
+      doc.setTextColor(100, 116, 139);
+      doc.text('Stammdaten & technische Vorbereitung', 40, 32);
+
+      doc.setDrawColor(226, 232, 240);
+      doc.line(15, 42, pageWidth - 15, 42);
+
+      let y = 55;
+
+      doc.setFontSize(14);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(15, 23, 42);
+      doc.text('1. Allgemeine Projektdaten', 15, y);
+      
+      y += 10;
+      doc.setFontSize(11);
+      doc.setFont('helvetica', 'normal');
+      doc.text(`Kunde / Projekt:`, 15, y); 
+      doc.setFont('helvetica', 'bold');
+      doc.text(companyName !== 'Neues Projekt' ? companyName : '____________________________________', 55, y);
+      
+      y += 8;
+      doc.setFont('helvetica', 'normal');
+      doc.text(`Anschrift:`, 15, y); 
+      doc.setFont('helvetica', 'bold');
+      const addressText = customerData.street || customerData.city ? `${customerData.street}, ${customerData.city}`.replace(/^,\s/, '').replace(/,\s$/, '') : '____________________________________';
+      doc.text(addressText, 55, y);
+
+      y += 15;
+
+      doc.setFontSize(14);
+      doc.setFont('helvetica', 'bold');
+      doc.text('2. Wichtige Ansprechpartner', 15, y);
+      
+      y += 10;
+      doc.setFontSize(11);
+      doc.setFont('helvetica', 'normal');
+      doc.text('Ansprechpartner Technik:', 15, y); 
+      doc.setDrawColor(148, 163, 184); 
+      doc.line(65, y+1, 195, y+1); 
+      y += 8;
+      doc.text('Tel.:', 65, y); doc.line(75, y+1, 125, y+1);
+      doc.text('E-Mail:', 130, y); doc.line(145, y+1, 195, y+1);
+
+      y += 12;
+      doc.text('Ansprechpartner IT / EDV:', 15, y); 
+      doc.line(65, y+1, 195, y+1); 
+      y += 8;
+      doc.text('Tel.:', 65, y); doc.line(75, y+1, 125, y+1);
+      doc.text('E-Mail:', 130, y); doc.line(145, y+1, 195, y+1);
+
+      y += 15;
+
+      doc.setFontSize(14);
+      doc.setFont('helvetica', 'bold');
+      doc.text('3. Technische Rahmenbedingungen', 15, y);
+      
+      y += 10;
+      doc.setFontSize(11);
+      doc.setFont('helvetica', 'normal');
+      
+      doc.text('Art der Maßnahme:', 15, y);
+      doc.rect(60, y-3, 4, 4); doc.text('Eichaustausch', 67, y);
+      doc.rect(100, y-3, 4, 4); doc.text('Funkumrüstung', 107, y);
+      doc.rect(140, y-3, 4, 4); doc.text('Sonstiges', 147, y);
+      
+      y += 12;
+      doc.text('Reparaturen genehmigt?', 15, y);
+      doc.rect(65, y-3, 4, 4); doc.text('Ja', 72, y);
+      doc.rect(85, y-3, 4, 4); doc.text('Nein', 92, y);
+      doc.rect(110, y-3, 4, 4); doc.text('Nach Rücksprache', 117, y);
+      
+      y += 12;
+      doc.text('Eingesetzte Software:', 15, y);
+      doc.rect(60, y-3, 4, 4); doc.text('Komtex', 67, y);
+      doc.rect(90, y-3, 4, 4); doc.text('Fremdsoftware:', 97, y); 
+      doc.line(125, y+1, 195, y+1);
+      
+      y += 12;
+      doc.text('Lagerort des Materials:', 15, y); 
+      doc.line(60, y+1, 195, y+1); 
+      
+      y += 15;
+
+      doc.setFontSize(14);
+      doc.setFont('helvetica', 'bold');
+      doc.text('4. Zeitplan & Datenaustausch', 15, y);
+      
+      y += 10;
+      doc.setFontSize(11);
+      doc.setFont('helvetica', 'normal');
+
+      doc.text('Gewünschter Start:', 15, y); 
+      doc.line(50, y+1, 100, y+1); 
+      doc.text('Abschluss bis:', 110, y); 
+      doc.line(140, y+1, 195, y+1); 
+      
+      y += 12;
+      doc.text('Datenübergabeformat:', 15, y);
+      doc.rect(60, y-3, 4, 4); doc.text('Excel', 67, y);
+      doc.rect(85, y-3, 4, 4); doc.text('CSV', 92, y);
+      doc.rect(110, y-3, 4, 4); doc.text('XML', 117, y);
+      doc.rect(135, y-3, 4, 4); doc.text('JSON', 142, y);
+      
+      y += 15;
+
+      // Nur ausgewählte Autos/Mitarbeiter ins PDF übernehmen
+      if(employees.length > 0 || vehicles.length > 0) {
+        doc.setFontSize(14);
+        doc.setFont('helvetica', 'bold');
+        doc.text('5. Benötigte Ausweise & Zugänge', 15, y);
+        
+        y += 8;
+        doc.setFontSize(10);
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(100, 116, 139);
+        doc.text('Bitte stellen Sie für unser Team im Vorfeld folgende Ausweise / Parkberechtigungen aus:', 15, y);
+        doc.setTextColor(15, 23, 42);
+        
+        y += 8;
+        if(employees.length > 0) {
+           doc.setFont('helvetica', 'bold');
+           doc.text('Mitarbeiter:', 15, y);
+           doc.setFont('helvetica', 'normal');
+           const splitEmp = doc.splitTextToSize(employees.join(', '), 140);
+           doc.text(splitEmp, 40, y);
+           y += (splitEmp.length * 6) + 4;
+        }
+        if(vehicles.length > 0) {
+           doc.setFont('helvetica', 'bold');
+           doc.text('Kennzeichen:', 15, y);
+           doc.setFont('helvetica', 'normal');
+           const splitVeh = doc.splitTextToSize(vehicles.join(', '), 140);
+           doc.text(splitVeh, 45, y);
+           y += (splitVeh.length * 6) + 4;
+        }
+      }
+
+      doc.setFontSize(10);
+      doc.setTextColor(15, 23, 42);
+      doc.setFont('helvetica', 'bold');
+      doc.text('Bitte füllen Sie dieses Formular aus und senden es an: info@messtex.de', 15, 280);
+
+      const safeFileName = companyName === 'Neues Projekt' ? 'Kunden_Fragebogen' : `Kunden_Fragebogen_${companyName.replace(/[^a-zA-Z0-9]/g, '_')}`;
+      doc.save(`${safeFileName}.pdf`);
+
+    } catch (error) {
+      console.error("Fehler beim PDF generieren:", error);
+      alert("Fehler beim Erstellen der PDF.");
+    } finally {
+      setIsGeneratingPdf(false);
+    }
+  };
+
+  // --- NEUE FUNKTIONEN FÜR CHIPS-AUSWAHL ---
   const handleContactChange = (id, field, value) => setContacts(contacts.map(c => c.id === id ? { ...c, [field]: value } : c));
   const removeContact = (id) => setContacts(contacts.filter(c => c.id !== id));
+  const handleAddContact = () => setContacts([...contacts, { id: Date.now(), name: '', position: '', phone: '', email: '' }]);
 
-  const addVehicle = () => { if (newVehicle.trim() !== '' && !vehicles.includes(newVehicle.trim())) { setVehicles([...vehicles, newVehicle.trim()]); setNewVehicle(''); setTasks(prev => ({ ...prev, parkausweise: true })); } };
-  const removeVehicle = (vToRemove) => { const updated = vehicles.filter(v => v !== vToRemove); setVehicles(updated); if(updated.length === 0) setTasks(prev => ({ ...prev, parkausweise: false })); };
+  const toggleVehicle = (v) => {
+    if (vehicles.includes(v)) { setVehicles(vehicles.filter(item => item !== v)); } 
+    else { setVehicles([...vehicles, v]); }
+  };
+  const addCustomVehicle = () => {
+    if (newVehicle.trim() !== '' && !vehicles.includes(newVehicle.trim())) {
+      setVehicles([...vehicles, newVehicle.trim()]);
+      setNewVehicle('');
+    }
+  };
 
-  const addEmployee = () => { if (newEmployee.trim() !== '' && !employees.includes(newEmployee.trim())) { setEmployees([...employees, newEmployee.trim()]); setNewEmployee(''); setTasks(prev => ({ ...prev, mitarbeiter: true })); } };
-  const removeEmployee = (empToRemove) => { const updated = employees.filter(emp => emp !== empToRemove); setEmployees(updated); if(updated.length === 0) setTasks(prev => ({ ...prev, mitarbeiter: false })); };
+  const toggleEmployee = (emp) => {
+    if (employees.includes(emp)) { setEmployees(employees.filter(e => e !== emp)); } 
+    else { setEmployees([...employees, emp]); }
+  };
+  const addCustomEmployee = () => {
+    if (newEmployee.trim() !== '' && !employees.includes(newEmployee.trim())) {
+      setEmployees([...employees, newEmployee.trim()]);
+      setNewEmployee('');
+    }
+  };
+
+  const handleToggleTask = (taskKey, e) => {
+    e.stopPropagation(); 
+    setTasks(prev => ({ ...prev, [taskKey]: !prev[taskKey] }));
+  };
 
   const handleFileUpload = async (taskKey, e) => {
     const file = e.target.files[0];
@@ -301,39 +516,47 @@ export default function App() {
   const month = dateObj ? dateObj.toLocaleString('de-DE', { month: 'short' }).toUpperCase() : '--';
   const kw = getWeekNumber(dateObj);
 
-  // --- THEME STYLING ---
+  // --- THEME STYLING (APPLE GLASSMORPHISM) ---
   const theme = {
-    bg: isDark ? 'bg-[#121212]' : 'bg-[#e0e5ec]',
-    text: isDark ? 'text-gray-200' : 'text-gray-600',
-    title: isDark ? 'text-white' : 'text-gray-800',
-    card: isDark ? 'bg-[#1e1e1e] border-[#333] shadow-[8px_8px_16px_rgba(0,0,0,0.4),-8px_-8px_16px_rgba(255,255,255,0.03)]' : 'bg-[#e0e5ec] border-white/50 shadow-[9px_9px_16px_rgb(163,177,198,0.6),-9px_-9px_16px_rgba(255,255,255,0.8)]',
-    input: isDark ? 'bg-[#121212] border-[#333] text-white shadow-[inset_4px_4px_8px_rgba(0,0,0,0.5),inset_-4px_-4px_8px_rgba(255,255,255,0.02)]' : 'bg-[#e0e5ec] border-transparent text-gray-800 shadow-[inset_4px_4px_8px_rgba(163,177,198,0.6),inset_-4px_-4px_8px_rgba(255,255,255,0.9)]',
-    flipCard: isDark ? 'bg-[#202020] border-[#333] shadow-lg' : 'bg-[#e0e5ec] border-white shadow-[5px_5px_10px_rgba(163,177,198,0.5),-5px_-5px_10px_rgba(255,255,255,0.8)]',
-    hover3D: 'transition-all duration-300 hover:-translate-y-2 hover:shadow-2xl',
+    bg: isDark ? 'bg-[#09090b]' : 'bg-slate-50',
+    text: isDark ? 'text-slate-200' : 'text-slate-700',
+    title: isDark ? 'text-white' : 'text-slate-900',
+    card: isDark 
+      ? 'bg-white/[0.04] backdrop-blur-2xl border border-white/10 shadow-[0_8px_32px_0_rgba(0,0,0,0.3)]' 
+      : 'bg-white/70 backdrop-blur-2xl border border-white/40 shadow-[0_8px_32px_0_rgba(31,38,135,0.05)]',
+    input: isDark 
+      ? 'bg-black/20 border border-white/10 text-white placeholder-white/30 focus:bg-black/40 focus:border-green-500/50 focus:ring-1 focus:ring-green-500/50 transition-all' 
+      : 'bg-white/50 border border-white/50 text-slate-800 placeholder-slate-400 focus:bg-white focus:border-green-500/50 focus:ring-1 focus:ring-green-500/50 transition-all',
+    flipCard: isDark 
+      ? 'bg-white/5 border border-white/10 backdrop-blur-md shadow-lg' 
+      : 'bg-white/80 border border-white/50 backdrop-blur-md shadow-lg',
+    hover3D: 'transition-all duration-500 hover:-translate-y-1 hover:shadow-[0_15px_40px_-5px_rgba(0,0,0,0.3)] hover:bg-white/[0.06]',
   };
 
-  // ANIMATIONS KLASSE FÜR DEN CONTENT
-  const transitionClass = `transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)] transform ${isTransitioning ? 'opacity-0 translate-y-8 scale-[0.98]' : 'opacity-100 translate-y-0 scale-100'}`;
+  const transitionClass = `transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)] transform ${isTransitioning ? 'opacity-0 translate-y-8 scale-[0.98] blur-[2px]' : 'opacity-100 translate-y-0 scale-100 blur-0'}`;
 
   // ==========================================
   // VIEW 1: LOGIN SCREEN
   // ==========================================
   if (!session) {
     return (
-      <div className={`min-h-screen ${theme.bg} ${theme.text} font-sans flex items-center justify-center p-4 transition-colors duration-500`}>
+      <div className={`min-h-screen ${theme.bg} ${theme.text} font-sans flex items-center justify-center p-4 transition-colors duration-700 relative z-0`}>
+        <div className="fixed inset-0 overflow-hidden pointer-events-none z-[-1]">
+          <div className={`absolute top-[-10%] left-[-10%] w-[50vw] h-[50vw] rounded-full blur-[120px] mix-blend-screen transition-all duration-1000 ${isDark ? 'bg-green-500/20' : 'bg-green-400/30'}`}></div>
+          <div className={`absolute bottom-[-10%] right-[-10%] w-[50vw] h-[50vw] rounded-full blur-[120px] mix-blend-screen transition-all duration-1000 ${isDark ? 'bg-blue-600/20' : 'bg-blue-500/30'}`}></div>
+        </div>
         <div className={`${theme.card} p-8 rounded-3xl w-full max-w-md relative overflow-hidden`}>
-          <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-green-400 to-blue-500"></div>
+          <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-green-400 to-blue-500 opacity-80"></div>
           <div className="flex flex-col items-center mb-8 mt-4">
-            <div className={`p-5 rounded-full mb-4 flex items-center justify-center ${isDark ? 'bg-[#121212] shadow-[inset_4px_4px_8px_rgba(0,0,0,0.5)]' : 'bg-[#e0e5ec] shadow-[inset_4px_4px_8px_rgba(163,177,198,0.6)]'}`}>
-              <img src="/Messtex_Icon_Logo_RGB.png" alt="Messtex Logo" className="h-12 w-12 object-contain" />
+            <div className={`p-5 rounded-full mb-4 flex items-center justify-center ${isDark ? 'bg-white/5 border border-white/10' : 'bg-white/80 border border-white/50 shadow-sm'}`}>
+              <img src="/Messtex_Icon_Logo_RGB.png" alt="Messtex Logo" className="h-12 w-12 object-contain drop-shadow-md" />
             </div>
             <h2 className={`text-2xl font-black ${theme.title}`}>Projekt Portal</h2>
             <p className="text-sm opacity-60 mt-2">Bitte melde dich an, um fortzufahren</p>
           </div>
-
           <form onSubmit={handleLogin} className="space-y-4">
             {authError && (
-              <div className="bg-red-500/10 border border-red-500/50 text-red-500 text-sm p-3 rounded-xl flex items-center gap-2">
+              <div className="bg-red-500/10 border border-red-500/30 text-red-400 text-sm p-3 rounded-xl flex items-center gap-2 backdrop-blur-md">
                 <AlertCircle size={16} /> {authError}
               </div>
             )}
@@ -345,12 +568,11 @@ export default function App() {
               <Lock size={18} className="absolute left-3 top-1/2 transform -translate-y-1/2 opacity-50" />
               <input type="password" placeholder="Passwort" value={authPassword} onChange={(e) => setAuthPassword(e.target.value)} required className={`w-full ${theme.input} rounded-xl pl-10 pr-4 py-3 outline-none`} />
             </div>
-            <button type="submit" disabled={authLoading} className="w-full bg-green-600 hover:bg-green-500 text-white font-bold py-3 rounded-xl transition-all hover:-translate-y-1 shadow-lg disabled:opacity-50 disabled:hover:translate-y-0 mt-4">
+            <button type="submit" disabled={authLoading} className="w-full bg-gradient-to-r from-green-600 to-green-500 hover:from-green-500 hover:to-green-400 text-white font-bold py-3 rounded-xl transition-all hover:-translate-y-0.5 shadow-[0_5px_20px_rgba(34,197,94,0.3)] disabled:opacity-50 disabled:hover:translate-y-0 mt-4 border border-green-400/50">
               {authLoading ? 'Lade...' : 'Anmelden'}
             </button>
           </form>
-          
-          <button onClick={() => setIsDark(!isDark)} className="absolute top-4 right-4 p-2 opacity-50 hover:opacity-100 transition-opacity">
+          <button onClick={() => setIsDark(!isDark)} className="absolute top-4 right-4 p-2 opacity-40 hover:opacity-100 transition-opacity">
             {isDark ? <Sun size={20} /> : <Moon size={20} />}
           </button>
         </div>
@@ -363,69 +585,54 @@ export default function App() {
   // ==========================================
   if (showHome) {
     return (
-      <div className={`min-h-screen ${theme.bg} ${theme.text} font-sans selection:bg-green-500/30 transition-colors duration-500 p-4 md:p-8 overflow-x-hidden`}>
+      <div className={`min-h-screen ${theme.bg} ${theme.text} font-sans selection:bg-green-500/30 transition-colors duration-700 p-4 md:p-8 overflow-x-hidden relative z-0`}>
+        <div className="fixed inset-0 overflow-hidden pointer-events-none z-[-1]">
+          <div className={`absolute top-[-10%] left-[-10%] w-[40vw] h-[40vw] rounded-full blur-[120px] mix-blend-screen transition-all duration-1000 ${isDark ? 'bg-green-500/15' : 'bg-green-400/20'}`}></div>
+          <div className={`absolute bottom-[-10%] right-[-10%] w-[40vw] h-[40vw] rounded-full blur-[120px] mix-blend-screen transition-all duration-1000 ${isDark ? 'bg-blue-500/15' : 'bg-blue-400/20'}`}></div>
+        </div>
         <div className={`max-w-7xl mx-auto space-y-8 ${transitionClass}`}>
-          
-          {/* HEADER */}
           <div className={`${theme.card} p-6 md:p-8 rounded-3xl border relative overflow-hidden transition-colors duration-500 flex flex-col md:flex-row md:items-center justify-between gap-4 z-10`}>
-            <div className="absolute top-0 left-0 w-2 h-full bg-gradient-to-b from-blue-400 to-blue-600 shadow-[0_0_15px_rgba(59,130,246,0.5)]"></div>
-            
+            <div className="absolute top-0 left-0 w-1 h-full bg-gradient-to-b from-blue-400 to-blue-600 opacity-80"></div>
             <h1 className={`text-3xl md:text-4xl font-black flex items-center gap-4 ml-4 ${theme.title}`}>
               <img src="/Messtex_Icon_Logo_RGB.png" alt="Messtex Logo" className="h-10 w-10 object-contain drop-shadow-lg" />
               Projekt Übersicht
             </h1>
-            
             <div className="flex items-center gap-3">
-              <button onClick={() => setIsDark(!isDark)} className={`p-3 rounded-2xl transition-all duration-300 hover:scale-110 ${isDark ? 'bg-[#2a2a2a] text-yellow-400 shadow-[inset_2px_2px_5px_rgba(0,0,0,0.5)]' : 'bg-white text-gray-800 shadow-[5px_5px_10px_rgba(163,177,198,0.5),-5px_-5px_10px_rgba(255,255,255,0.8)]'}`} title="Theme wechseln">
-                {isDark ? <Sun size={24} /> : <Moon size={24} />}
+              <button onClick={() => setIsDark(!isDark)} className={`p-3 rounded-2xl transition-all duration-300 hover:scale-105 ${isDark ? 'bg-white/5 border border-white/10 text-yellow-400 hover:bg-white/10' : 'bg-white/60 border border-white/40 text-slate-800 hover:bg-white'}`} title="Theme wechseln">
+                {isDark ? <Sun size={22} /> : <Moon size={22} />}
               </button>
-              <button onClick={handleLogout} className={`p-3 rounded-2xl transition-all duration-300 hover:scale-110 hover:text-red-500 ${isDark ? 'bg-[#2a2a2a] text-gray-400 shadow-[inset_2px_2px_5px_rgba(0,0,0,0.5)]' : 'bg-white text-gray-600 shadow-[5px_5px_10px_rgba(163,177,198,0.5),-5px_-5px_10px_rgba(255,255,255,0.8)]'}`} title="Abmelden">
-                <LogOut size={24} />
+              <button onClick={handleLogout} className={`p-3 rounded-2xl transition-all duration-300 hover:scale-105 hover:text-red-500 ${isDark ? 'bg-white/5 border border-white/10 text-slate-400 hover:bg-white/10' : 'bg-white/60 border border-white/40 text-slate-600 hover:bg-white'}`} title="Abmelden">
+                <LogOut size={22} />
               </button>
             </div>
           </div>
-
-          {/* PROJEKT GRID */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            
-            {/* Karte: NEUES PROJEKT */}
-            <div onClick={() => navigateTo('new')} className={`${theme.card} p-8 rounded-3xl border-2 border-dashed flex flex-col items-center justify-center cursor-pointer transition-all duration-300 hover:scale-105 group min-h-[220px] ${isDark ? 'border-[#444] hover:border-green-500' : 'border-gray-400 hover:border-green-500'}`}>
-               <Plus size={56} className="text-gray-400 group-hover:text-green-500 transition-colors mb-4 drop-shadow-md" />
-               <span className="font-bold text-lg text-gray-500 group-hover:text-green-500 transition-colors uppercase tracking-wider">Neues Projekt</span>
+            <div onClick={() => navigateTo('new')} className={`${theme.card} p-8 rounded-3xl border border-dashed flex flex-col items-center justify-center cursor-pointer transition-all duration-300 hover:scale-105 group min-h-[220px] ${isDark ? 'border-white/20 hover:border-green-500 hover:bg-white/[0.06]' : 'border-slate-400 hover:border-green-500 hover:bg-white/80'}`}>
+               <Plus size={56} className="text-slate-400/50 group-hover:text-green-500 transition-colors mb-4 drop-shadow-md" />
+               <span className="font-bold text-lg text-slate-500 group-hover:text-green-500 transition-colors uppercase tracking-wider">Neues Projekt</span>
             </div>
-
-            {/* Karten: BESTEHENDE PROJEKTE */}
             {projectsList.map(p => {
                const pDate = p.kickoff_date ? new Date(p.kickoff_date) : null;
                const pDay = pDate ? pDate.getDate().toString().padStart(2, '0') : '--';
                const pMonth = pDate ? pDate.toLocaleString('de-DE', { month: 'short' }).toUpperCase() : '--';
                const pKw = getWeekNumber(pDate);
-
                return (
-                 <div 
-                   key={p.id} 
-                   onClick={() => navigateTo('project', p.id)} 
-                   className={`${theme.card} p-6 rounded-3xl border transition-all duration-300 hover:scale-105 cursor-pointer relative group flex flex-col justify-between min-h-[220px] ${isDark ? 'border-[#333] hover:border-blue-500' : 'border-transparent hover:border-blue-500'}`}
-                 >
-                    <button onClick={(e) => deleteProject(e, p.id)} className="absolute top-4 right-4 p-2 text-gray-500 hover:bg-red-500/20 hover:text-red-500 rounded-xl opacity-0 group-hover:opacity-100 transition-all z-20">
+                 <div key={p.id} onClick={() => navigateTo('project', p.id)} className={`${theme.card} p-6 rounded-3xl transition-all duration-500 hover:scale-105 hover:-translate-y-1 hover:bg-white/[0.06] cursor-pointer relative group flex flex-col justify-between min-h-[220px]`}>
+                    <button onClick={(e) => deleteProject(e, p.id)} className="absolute top-4 right-4 p-2 text-slate-500 hover:bg-red-500/20 hover:text-red-400 rounded-xl opacity-0 group-hover:opacity-100 transition-all z-20">
                       <Trash2 size={20} />
                     </button>
-                    
                     <div>
                        <h3 className={`font-black text-2xl mb-4 pr-10 truncate ${theme.title}`}>{p.company_name}</h3>
-                       
                        <div className="flex items-center justify-between gap-2 flex-wrap">
                          {p.is_ready_to_start ? (
-                            <span className="inline-flex items-center gap-1.5 bg-green-500/10 text-green-500 border border-green-500/20 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider shadow-sm"><CheckCircle2 size={12}/> Startklar</span>
+                            <span className="inline-flex items-center gap-1.5 bg-green-500/10 text-green-500 border border-green-500/20 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider shadow-sm backdrop-blur-md"><CheckCircle2 size={12}/> Startklar</span>
                          ) : (
-                            <span className="inline-flex items-center gap-1.5 bg-orange-500/10 text-orange-500 border border-orange-500/20 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider shadow-sm"><Circle size={12}/> In Bearbeitung</span>
+                            <span className="inline-flex items-center gap-1.5 bg-orange-500/10 text-orange-400 border border-orange-500/20 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider shadow-sm backdrop-blur-md"><Circle size={12}/> In Bearbeitung</span>
                          )}
-
-                         {/* MINI KLAPPUHR */}
                          {pDate ? (
                            <div className="flex items-center gap-1.5 ml-auto">
-                             <span className="text-[10px] font-bold text-purple-500 bg-purple-500/10 border border-purple-500/20 px-2 py-1 rounded-full uppercase tracking-wider">KW {pKw}</span>
-                             <div className={`flex gap-0.5 p-0.5 rounded-lg border shadow-sm ${isDark ? 'bg-[#1a1a1a] border-[#333]' : 'bg-gray-100 border-gray-200'}`}>
+                             <span className="text-[10px] font-bold text-purple-400 bg-purple-500/10 border border-purple-500/20 px-2 py-1 rounded-full uppercase tracking-wider backdrop-blur-md">KW {pKw}</span>
+                             <div className={`flex gap-0.5 p-0.5 rounded-lg border shadow-sm backdrop-blur-md ${isDark ? 'bg-black/40 border-white/10' : 'bg-white/50 border-white/40'}`}>
                                <div className={`w-6 h-6 flex items-center justify-center rounded overflow-hidden relative ${theme.flipCard}`}>
                                  <div className="absolute top-1/2 left-0 w-full h-[1px] bg-black/20 z-10"></div>
                                  <span className="text-[10px] font-black z-0">{pDay}</span>
@@ -441,21 +648,19 @@ export default function App() {
                          )}
                        </div>
                     </div>
-                    
                     <div className="mt-6">
                        <div className="flex justify-between text-xs font-bold opacity-60 mb-2 uppercase tracking-wider">
                          <span>Fortschritt</span>
                          <span className={p.progress_percentage === 100 ? 'text-green-500' : ''}>{p.progress_percentage || 0}%</span>
                        </div>
-                       <div className={`w-full h-2 rounded-full overflow-hidden ${isDark ? 'bg-black/50' : 'bg-gray-300 shadow-inner'}`}>
-                         <div className={`h-full transition-all duration-1000 ${p.progress_percentage === 100 ? 'bg-green-500' : 'bg-blue-500'}`} style={{ width: `${p.progress_percentage || 0}%` }}></div>
+                       <div className={`w-full h-1.5 rounded-full overflow-hidden ${isDark ? 'bg-black/50 border border-white/5' : 'bg-slate-200 shadow-inner'}`}>
+                         <div className={`h-full transition-all duration-1000 ${p.progress_percentage === 100 ? 'bg-green-500 shadow-[0_0_10px_rgba(34,197,94,0.5)]' : 'bg-blue-500 shadow-[0_0_10px_rgba(59,130,246,0.5)]'}`} style={{ width: `${p.progress_percentage || 0}%` }}></div>
                        </div>
                     </div>
                  </div>
                );
             })}
           </div>
-          
         </div>
       </div>
     );
@@ -465,100 +670,106 @@ export default function App() {
   // VIEW 3: PROJECT DETAIL SCREEN
   // ==========================================
   return (
-    <div className={`min-h-screen ${theme.bg} ${theme.text} font-sans selection:bg-green-500/30 transition-colors duration-500 relative overflow-x-hidden`}>
-      
-      {/* VORSCHAU MODAL */}
+    <div className={`min-h-screen ${theme.bg} ${theme.text} font-sans selection:bg-green-500/30 transition-colors duration-700 relative overflow-x-hidden z-0`}>
+      <div className="fixed inset-0 overflow-hidden pointer-events-none z-[-1]">
+        <div className={`absolute top-[-10%] left-[-10%] w-[40vw] h-[40vw] rounded-full blur-[120px] mix-blend-screen transition-all duration-1000 ${isDark ? 'bg-green-500/15' : 'bg-green-400/20'}`}></div>
+        <div className={`absolute bottom-[-10%] right-[-10%] w-[40vw] h-[40vw] rounded-full blur-[120px] mix-blend-screen transition-all duration-1000 ${isDark ? 'bg-blue-500/15' : 'bg-blue-400/20'}`}></div>
+      </div>
+
       {previewFile && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[100] flex flex-col p-4 md:p-10 transition-opacity duration-300">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-xl z-[100] flex flex-col p-4 md:p-10 transition-opacity duration-300">
           <div className="flex justify-between items-center mb-4 text-white">
             <h3 className="text-xl font-bold flex items-center gap-2"><Eye className="text-blue-400" /> Vorschau: {previewFile?.name || 'Dokument'}</h3>
-            <button onClick={() => setPreviewFile(null)} className="p-2 bg-red-500 hover:bg-red-600 rounded-full transition-colors"><X size={24} /></button>
+            <button onClick={() => setPreviewFile(null)} className="p-2 bg-white/10 hover:bg-red-500 rounded-full transition-colors border border-white/20"><X size={24} /></button>
           </div>
-          <div className="flex-1 w-full bg-white rounded-xl overflow-hidden shadow-2xl">
+          <div className="flex-1 w-full bg-white/10 rounded-2xl overflow-hidden shadow-2xl border border-white/20 backdrop-blur-md">
             {previewFile?.type?.includes('pdf') ? (
               <iframe src={previewFile.url} className="w-full h-full border-none" title="PDF Vorschau" />
             ) : previewFile?.type?.includes('image') ? (
               <img src={previewFile.url} alt="Vorschau" className="w-full h-full object-contain p-4" />
             ) : (
-              <div className="w-full h-full flex items-center justify-center text-gray-800 flex-col gap-4">
-                <FileText size={64} className="text-gray-400" />
+              <div className="w-full h-full flex items-center justify-center text-white flex-col gap-4">
+                <FileText size={64} className="opacity-50" />
                 <p className="text-xl font-bold">Keine Vorschau verfügbar</p>
-                <a href={previewFile?.url || '#'} download={previewFile?.name || 'download'} className="mt-4 bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 rounded-xl font-bold flex items-center gap-2"><Download size={20} /> Datei herunterladen</a>
+                <a href={previewFile?.url || '#'} download={previewFile?.name || 'download'} className="mt-4 bg-blue-500 hover:bg-blue-400 text-white px-6 py-2 rounded-xl font-bold flex items-center gap-2 shadow-lg"><Download size={20} /> Datei herunterladen</a>
               </div>
             )}
           </div>
         </div>
       )}
 
-      {/* SIDEBAR OVERLAY */}
-      {isSidebarOpen && <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 transition-opacity duration-300" onClick={() => setIsSidebarOpen(false)}></div>}
+      {isSidebarOpen && <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-40 transition-opacity duration-300" onClick={() => setIsSidebarOpen(false)}></div>}
 
-      {/* SIDEBAR MENÜ */}
-      <div className={`fixed top-0 left-0 h-full w-80 z-50 transform transition-transform duration-500 ease-[cubic-bezier(0.4,0,0.2,1)] ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} ${isDark ? 'bg-[#1a1a1a] border-r border-[#333] shadow-[10px_0_30px_rgba(0,0,0,0.8)]' : 'bg-[#e0e5ec] border-r border-white shadow-[10px_0_30px_rgba(163,177,198,0.5)]'}`}>
-        <div className="p-6 flex justify-between items-center border-b border-gray-500/20">
+      <div className={`fixed top-0 left-0 h-full w-80 z-50 transform transition-transform duration-500 ease-[cubic-bezier(0.4,0,0.2,1)] ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} ${isDark ? 'bg-black/60 backdrop-blur-3xl border-r border-white/10 shadow-[20px_0_40px_rgba(0,0,0,0.5)]' : 'bg-white/80 backdrop-blur-3xl border-r border-white/40 shadow-[20px_0_40px_rgba(0,0,0,0.1)]'}`}>
+        <div className="p-6 flex justify-between items-center border-b border-white/10">
           <h2 className={`text-xl font-bold flex items-center gap-3 ${theme.title}`}>
             <img src="/Messtex_Icon_Logo_RGB.png" alt="Logo" className="h-6 w-6 object-contain" /> Projekte
           </h2>
-          <button onClick={() => setIsSidebarOpen(false)} className={`p-2 rounded-full transition-colors hover:scale-110 ${isDark ? 'hover:bg-[#333] text-gray-400' : 'hover:bg-white text-gray-600'}`}><X size={24} /></button>
+          <button onClick={() => setIsSidebarOpen(false)} className={`p-2 rounded-full transition-colors hover:scale-110 ${isDark ? 'hover:bg-white/10 text-slate-400' : 'hover:bg-black/5 text-slate-600'}`}><X size={24} /></button>
         </div>
         <div className="p-4 space-y-4 overflow-y-auto h-[calc(100vh-80px)] custom-scrollbar">
-           
-           <button onClick={() => navigateTo('home')} className={`w-full py-3 rounded-xl border font-bold flex items-center justify-center gap-2 transition-all hover:scale-105 shadow-sm ${isDark ? 'border-[#444] bg-[#222] hover:bg-[#333] text-white' : 'border-gray-300 bg-white hover:bg-gray-50 text-gray-800'}`}>
+           <button onClick={() => navigateTo('home')} className={`w-full py-3 rounded-xl border font-bold flex items-center justify-center gap-2 transition-all hover:scale-105 shadow-sm backdrop-blur-md ${isDark ? 'border-white/10 bg-white/5 hover:bg-white/10 text-white' : 'border-slate-200 bg-white/50 hover:bg-white text-slate-800'}`}>
              <Home size={18} /> Zurück zur Übersicht
            </button>
-
-           <div className="my-4 border-b border-gray-500/20"></div>
-
-           <button onClick={() => navigateTo('new')} className={`w-full py-3 rounded-xl border-2 border-dashed font-bold flex items-center justify-center gap-2 transition-all hover:scale-105 ${isDark ? 'border-[#444] text-gray-400 hover:border-green-500 hover:text-green-500 bg-[#121212]' : 'border-gray-400 text-gray-600 hover:border-green-600 hover:text-green-600 bg-transparent'}`}><Plus size={18} /> Neues Projekt</button>
-           
+           <div className="my-4 border-b border-white/10"></div>
+           <button onClick={() => navigateTo('new')} className={`w-full py-3 rounded-xl border border-dashed font-bold flex items-center justify-center gap-2 transition-all hover:scale-105 ${isDark ? 'border-white/20 text-slate-300 hover:border-green-500 hover:text-green-400 hover:bg-white/5' : 'border-slate-400 text-slate-600 hover:border-green-600 hover:text-green-600 hover:bg-white/50'}`}><Plus size={18} /> Neues Projekt</button>
            {projectsList.length === 0 && <p className="text-center text-xs opacity-50 mt-10">Noch keine Projekte in der Datenbank.</p>}
-           
            {projectsList.map(p => (
-              <div key={p.id} onClick={() => navigateTo('project', p.id)} className={`p-4 rounded-xl cursor-pointer transition-all hover:scale-105 border relative group flex flex-col justify-between ${currentProjectId === p.id ? 'border-blue-500 shadow-[0_0_10px_rgba(59,130,246,0.3)]' : isDark ? 'border-[#333] hover:border-green-500 bg-[#252525]' : 'border-transparent hover:border-green-500 bg-[#e0e5ec] shadow-[5px_5px_10px_rgba(163,177,198,0.5),-5px_-5px_10px_rgba(255,255,255,0.8)]'}`}>
+              <div key={p.id} onClick={() => navigateTo('project', p.id)} className={`p-4 rounded-xl cursor-pointer transition-all hover:scale-105 border relative group flex flex-col justify-between backdrop-blur-md ${currentProjectId === p.id ? 'border-blue-500 bg-blue-500/10 shadow-[0_0_15px_rgba(59,130,246,0.2)]' : isDark ? 'border-white/5 bg-white/5 hover:border-white/20 hover:bg-white/10' : 'border-white/40 bg-white/50 hover:border-slate-300 hover:bg-white'}`}>
                  <div className="flex justify-between items-start mb-2">
                    <h3 className={`font-bold truncate pr-6 ${theme.title}`}>{p.company_name}</h3>
-                   <button onClick={(e) => deleteProject(e, p.id)} className="absolute top-3 right-3 text-gray-500 hover:text-red-500 hover:scale-110 transition-all opacity-0 group-hover:opacity-100" title="Projekt löschen"><Trash2 size={16} /></button>
+                   <button onClick={(e) => deleteProject(e, p.id)} className="absolute top-3 right-3 text-slate-500 hover:text-red-400 hover:scale-110 transition-all opacity-0 group-hover:opacity-100" title="Projekt löschen"><Trash2 size={16} /></button>
                  </div>
                  {p.is_ready_to_start ? (
                     <div className="text-xs font-bold text-green-500 mt-2">Startklar 🚀</div>
                  ) : (
-                    <div className="text-xs font-bold opacity-70 mt-2 text-orange-500">In Bearbeitung</div>
+                    <div className="text-xs font-bold opacity-70 mt-2 text-orange-400">In Bearbeitung</div>
                  )}
               </div>
            ))}
         </div>
       </div>
 
-      {/* HAUPTINHALT (Mit Fade & Lift Animation) */}
       <div className={`p-4 md:p-8 pb-24 ${transitionClass}`}>
         <div className="max-w-7xl mx-auto space-y-8">
           
           {/* HEADER */}
-          <div className={`${theme.card} p-8 rounded-3xl border relative overflow-hidden transition-colors duration-500 flex flex-col`}>
-            <div className="absolute top-0 left-0 w-2 h-full bg-gradient-to-b from-green-400 to-green-600 shadow-[0_0_15px_rgba(34,197,94,0.5)]"></div>
+          <div className={`${theme.card} p-6 md:p-8 rounded-3xl border relative overflow-hidden transition-colors duration-500 flex flex-col`}>
+            <div className="absolute top-0 left-0 w-1 h-full bg-gradient-to-b from-green-400 to-green-600 opacity-80"></div>
             
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
               <div className="flex items-center gap-4 w-full">
-                <button onClick={() => navigateTo('home')} className={`p-3 rounded-2xl flex-shrink-0 transition-all duration-300 hover:scale-105 ${isDark ? 'bg-[#2a2a2a] text-white shadow-[inset_2px_2px_5px_rgba(0,0,0,0.5)]' : 'bg-white text-gray-800 shadow-[5px_5px_10px_rgba(163,177,198,0.5),-5px_-5px_10px_rgba(255,255,255,0.8)]'}`} title="Zurück zur Übersicht"><Home size={24} /></button>
-                <button onClick={() => setIsSidebarOpen(true)} className={`p-3 rounded-2xl flex-shrink-0 transition-all duration-300 hover:scale-105 ${isDark ? 'bg-[#2a2a2a] text-white shadow-[inset_2px_2px_5px_rgba(0,0,0,0.5)]' : 'bg-white text-gray-800 shadow-[5px_5px_10px_rgba(163,177,198,0.5),-5px_-5px_10px_rgba(255,255,255,0.8)]'}`} title="Projekte Menü"><Menu size={24} /></button>
-                <input type="text" value={companyName} onChange={(e) => setCompanyName(e.target.value)} className={`text-4xl md:text-5xl lg:text-6xl font-extrabold bg-transparent border-none outline-none w-full truncate ${isDark ? 'text-white' : 'text-gray-800 drop-shadow-md'}`} placeholder="Firmenname..." />
+                <button onClick={() => navigateTo('home')} className={`p-3 rounded-2xl flex-shrink-0 transition-all duration-300 hover:scale-105 ${isDark ? 'bg-white/5 text-white border border-white/10 hover:bg-white/10' : 'bg-white/60 text-slate-800 border border-white/40 hover:bg-white'}`} title="Zurück zur Übersicht"><Home size={22} /></button>
+                <button onClick={() => setIsSidebarOpen(true)} className={`p-3 rounded-2xl flex-shrink-0 transition-all duration-300 hover:scale-105 ${isDark ? 'bg-white/5 text-white border border-white/10 hover:bg-white/10' : 'bg-white/60 text-slate-800 border border-white/40 hover:bg-white'}`} title="Projekte Menü"><Menu size={22} /></button>
+                <input type="text" value={companyName} onChange={(e) => setCompanyName(e.target.value)} className={`text-4xl md:text-5xl lg:text-6xl font-extrabold bg-transparent border-none outline-none w-full truncate placeholder-slate-500/50 ${isDark ? 'text-white' : 'text-slate-800'}`} placeholder="Firmenname..." />
               </div>
               
               <div className="flex flex-col items-end gap-3 flex-shrink-0">
                  <div className="flex items-center gap-2">
-                   <button onClick={() => setIsDark(!isDark)} className={`p-3 rounded-full transition-all duration-300 hover:scale-110 ${isDark ? 'bg-[#2a2a2a] text-yellow-400 shadow-[inset_2px_2px_5px_rgba(0,0,0,0.5)]' : 'bg-white text-gray-800 shadow-[5px_5px_10px_rgba(163,177,198,0.5),-5px_-5px_10px_rgba(255,255,255,0.8)]'}`} title="Theme wechseln">
+                   
+                   <button 
+                      onClick={generateCustomerPDF} 
+                      disabled={isGeneratingPdf}
+                      className={`flex items-center gap-2 px-4 py-2.5 rounded-full font-bold text-sm transition-all duration-300 ${isDark ? 'bg-blue-600/20 text-blue-400 hover:bg-blue-600/30 border border-blue-500/30' : 'bg-blue-50 text-blue-600 hover:bg-blue-100 border border-blue-200'} shadow-sm backdrop-blur-md disabled:opacity-50`}
+                      title="Kunden-Fragebogen herunterladen"
+                   >
+                     {isGeneratingPdf ? <RefreshCw size={16} className="animate-spin" /> : <FileDown size={16} />}
+                     <span className="hidden sm:inline">{isGeneratingPdf ? 'Erstelle PDF...' : 'Kunden-Fragebogen (PDF)'}</span>
+                   </button>
+
+                   <button onClick={() => setIsDark(!isDark)} className={`p-2.5 rounded-full transition-all duration-300 hover:scale-110 ${isDark ? 'bg-white/5 border border-white/10 text-yellow-400 hover:bg-white/10' : 'bg-white/60 border border-white/40 text-slate-800 hover:bg-white'}`} title="Theme wechseln">
                      {isDark ? <Sun size={20} /> : <Moon size={20} />}
                    </button>
-                   <button onClick={handleLogout} className={`p-3 rounded-full transition-all duration-300 hover:scale-110 hover:text-red-500 ${isDark ? 'bg-[#2a2a2a] text-gray-400 shadow-[inset_2px_2px_5px_rgba(0,0,0,0.5)]' : 'bg-white text-gray-600 shadow-[5px_5px_10px_rgba(163,177,198,0.5),-5px_-5px_10px_rgba(255,255,255,0.8)]'}`} title="Abmelden">
+                   <button onClick={handleLogout} className={`p-2.5 rounded-full transition-all duration-300 hover:scale-110 hover:text-red-500 ${isDark ? 'bg-white/5 border border-white/10 text-slate-400 hover:bg-white/10' : 'bg-white/60 border border-white/40 text-slate-600 hover:bg-white'}`} title="Abmelden">
                      <LogOut size={20} />
                    </button>
                  </div>
                  
-                 <div className={`flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest px-3 py-1 rounded-full border ${isDark ? 'bg-[#121212] border-[#333]' : 'bg-white border-gray-300'}`}>
+                 <div className={`flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest px-3 py-1.5 rounded-full border backdrop-blur-md ${isDark ? 'bg-black/30 border-white/10' : 'bg-white/60 border-slate-200'}`}>
                     {syncStatus === 'saving' ? (
-                      <><RefreshCw size={12} className="animate-spin text-blue-500" /> <span className="opacity-70">Cloud-Sync...</span></>
+                      <><RefreshCw size={12} className="animate-spin text-blue-400" /> <span className="opacity-70">Cloud-Sync...</span></>
                     ) : syncStatus === 'error' ? (
-                      <><AlertCircle size={12} className="text-red-500" /> <span className="opacity-70 text-red-500">Speicherfehler</span></>
+                      <><AlertCircle size={12} className="text-red-400" /> <span className="opacity-70 text-red-400">Speicherfehler</span></>
                     ) : (
                       <><CheckCircle2 size={12} className="text-green-500" /> <span className="opacity-70 text-green-500">Gespeichert</span></>
                     )}
@@ -568,11 +779,11 @@ export default function App() {
             
             {/* LET'S GO BANNER */}
             {isReadyToStart ? (
-               <div className="bg-gradient-to-r from-green-500 to-green-600 text-white p-3 rounded-xl flex items-center justify-center gap-2 font-black tracking-widest shadow-[0_0_20px_rgba(34,197,94,0.4)] my-4 mb-2">
+               <div className="bg-gradient-to-r from-green-500/90 to-green-600/90 backdrop-blur-md border border-green-400/30 text-white p-3 rounded-xl flex items-center justify-center gap-2 font-black tracking-widest shadow-[0_5px_20px_rgba(34,197,94,0.3)] my-4 mb-2">
                  🚀 LET'S GO! AUFTRAG IST ZUM START FREIGEGEBEN
                </div>
             ) : (
-               <div className="flex items-center gap-2 uppercase tracking-widest text-sm font-bold opacity-80 mt-4 mb-2">
+               <div className="flex items-center gap-2 uppercase tracking-widest text-sm font-bold opacity-70 mt-4 mb-2">
                  <span className="text-green-500">▶</span> Projekt Onboarding & Stammdaten
                </div>
             )}
@@ -585,88 +796,88 @@ export default function App() {
             <div className="space-y-8">
               
               {/* KUNDENSTAMMDATEN */}
-              <div className={`${theme.card} rounded-3xl p-6 border ${theme.hover3D}`}>
-                <h2 className={`${theme.title} text-xl font-bold mb-6 flex items-center gap-2 border-b ${isDark ? 'border-[#333]' : 'border-gray-300'} pb-3`}>
-                  <Building className="text-blue-500 drop-shadow-md" /> Kundenstammdaten
+              <div className={`${theme.card} rounded-3xl p-6 md:p-8 ${theme.hover3D}`}>
+                <h2 className={`${theme.title} text-xl font-bold mb-6 flex items-center gap-2 border-b ${isDark ? 'border-white/10' : 'border-slate-200'} pb-4`}>
+                  <Building className="text-blue-500" /> Kundenstammdaten
                 </h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
                   <div className="relative">
-                    <MapPin size={16} className="absolute left-3 top-1/2 transform -translate-y-1/2 opacity-50" />
-                    <input type="text" placeholder="Straße & Hausnummer" value={customerData.street} onChange={e => setCustomerData({...customerData, street: e.target.value})} className={`w-full ${theme.input} border rounded-xl pl-9 pr-3 py-3 outline-none transition-all`} />
+                    <MapPin size={16} className="absolute left-4 top-1/2 transform -translate-y-1/2 opacity-50" />
+                    <input type="text" placeholder="Straße & Hausnummer" value={customerData.street} onChange={e => setCustomerData({...customerData, street: e.target.value})} className={`w-full ${theme.input} rounded-xl pl-10 pr-4 py-3 outline-none`} />
                   </div>
                   <div className="relative">
-                    <Map size={16} className="absolute left-3 top-1/2 transform -translate-y-1/2 opacity-50" />
-                    <input type="text" placeholder="PLZ & Ort" value={customerData.city} onChange={e => setCustomerData({...customerData, city: e.target.value})} className={`w-full ${theme.input} border rounded-xl pl-9 pr-3 py-3 outline-none transition-all`} />
+                    <Map size={16} className="absolute left-4 top-1/2 transform -translate-y-1/2 opacity-50" />
+                    <input type="text" placeholder="PLZ & Ort" value={customerData.city} onChange={e => setCustomerData({...customerData, city: e.target.value})} className={`w-full ${theme.input} rounded-xl pl-10 pr-4 py-3 outline-none`} />
                   </div>
                   <div className="relative">
-                    <Phone size={16} className="absolute left-3 top-1/2 transform -translate-y-1/2 opacity-50" />
-                    <input type="text" placeholder="Telefon" value={customerData.phone} onChange={e => setCustomerData({...customerData, phone: e.target.value})} className={`w-full ${theme.input} border rounded-xl pl-9 pr-3 py-3 outline-none transition-all`} />
+                    <Phone size={16} className="absolute left-4 top-1/2 transform -translate-y-1/2 opacity-50" />
+                    <input type="text" placeholder="Telefon" value={customerData.phone} onChange={e => setCustomerData({...customerData, phone: e.target.value})} className={`w-full ${theme.input} rounded-xl pl-10 pr-4 py-3 outline-none`} />
                   </div>
                   <div className="relative">
-                    <Mail size={16} className="absolute left-3 top-1/2 transform -translate-y-1/2 opacity-50" />
-                    <input type="email" placeholder="E-Mail" value={customerData.email} onChange={e => setCustomerData({...customerData, email: e.target.value})} className={`w-full ${theme.input} border rounded-xl pl-9 pr-3 py-3 outline-none transition-all`} />
+                    <Mail size={16} className="absolute left-4 top-1/2 transform -translate-y-1/2 opacity-50" />
+                    <input type="email" placeholder="E-Mail" value={customerData.email} onChange={e => setCustomerData({...customerData, email: e.target.value})} className={`w-full ${theme.input} rounded-xl pl-10 pr-4 py-3 outline-none`} />
                   </div>
                 </div>
 
                 <div className="mt-8">
                   <h3 className="text-sm font-bold uppercase tracking-wider mb-4 flex items-center justify-between opacity-70">
                     <span>Ansprechpartner</span>
-                    {!hasValidContact && <span className="text-red-500 text-xs flex items-center gap-1"><AlertCircle size={14}/> Pflichtfeld</span>}
+                    {!hasValidContact && <span className="text-red-400 text-xs flex items-center gap-1"><AlertCircle size={14}/> Pflichtfeld</span>}
                   </h3>
                   {contacts.map((contact, index) => (
-                    <div key={contact.id} className={`${isDark ? 'bg-[#252525]' : 'bg-[#e0e5ec] shadow-[inset_3px_3px_6px_rgba(163,177,198,0.5)]'} p-4 rounded-2xl mb-4 relative group transition-colors`}>
+                    <div key={contact.id} className={`${isDark ? 'bg-black/20 border-white/5' : 'bg-white/50 border-white/40'} border p-5 rounded-2xl mb-4 relative group transition-colors`}>
                       {index > 0 && (
-                        <button onClick={() => removeContact(contact.id)} className="absolute -top-3 -right-3 bg-red-500 text-white p-2 rounded-full shadow-lg opacity-0 group-hover:opacity-100 hover:scale-110 transition-all">
+                        <button onClick={() => removeContact(contact.id)} className="absolute -top-3 -right-3 bg-red-500/90 backdrop-blur-md text-white p-2 rounded-full shadow-lg opacity-0 group-hover:opacity-100 hover:scale-110 transition-all border border-red-400/50">
                           <Trash2 size={16} />
                         </button>
                       )}
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                         <div className="relative">
                           <User size={16} className="absolute left-3 top-1/2 transform -translate-y-1/2 opacity-50" />
-                          <input type="text" placeholder="Name *" value={contact.name} onChange={e => handleContactChange(contact.id, 'name', e.target.value)} className={`w-full ${theme.input} ${contact.name === '' ? '!border-red-500' : ''} border rounded-xl pl-9 pr-3 py-2 text-sm outline-none`} />
+                          <input type="text" placeholder="Name *" value={contact.name} onChange={e => handleContactChange(contact.id, 'name', e.target.value)} className={`w-full ${theme.input} ${contact.name === '' ? '!border-red-400/50 focus:!border-red-400' : ''} rounded-xl pl-9 pr-3 py-2.5 text-sm outline-none`} />
                         </div>
                         <div className="relative">
                           <Briefcase size={16} className="absolute left-3 top-1/2 transform -translate-y-1/2 opacity-50" />
-                          <input type="text" placeholder="Position" value={contact.position} onChange={e => handleContactChange(contact.id, 'position', e.target.value)} className={`w-full ${theme.input} border rounded-xl pl-9 pr-3 py-2 text-sm outline-none`} />
+                          <input type="text" placeholder="Position" value={contact.position} onChange={e => handleContactChange(contact.id, 'position', e.target.value)} className={`w-full ${theme.input} rounded-xl pl-9 pr-3 py-2.5 text-sm outline-none`} />
                         </div>
                         <div className="relative">
                           <Phone size={16} className="absolute left-3 top-1/2 transform -translate-y-1/2 opacity-50" />
-                          <input type="text" placeholder="Telefon" value={contact.phone} onChange={e => handleContactChange(contact.id, 'phone', e.target.value)} className={`w-full ${theme.input} border rounded-xl pl-9 pr-3 py-2 text-sm outline-none`} />
+                          <input type="text" placeholder="Telefon" value={contact.phone} onChange={e => handleContactChange(contact.id, 'phone', e.target.value)} className={`w-full ${theme.input} rounded-xl pl-9 pr-3 py-2.5 text-sm outline-none`} />
                         </div>
                         <div className="relative">
                           <Mail size={16} className="absolute left-3 top-1/2 transform -translate-y-1/2 opacity-50" />
-                          <input type="email" placeholder="E-Mail" value={contact.email} onChange={e => handleContactChange(contact.id, 'email', e.target.value)} className={`w-full ${theme.input} border rounded-xl pl-9 pr-3 py-2 text-sm outline-none`} />
+                          <input type="email" placeholder="E-Mail" value={contact.email} onChange={e => handleContactChange(contact.id, 'email', e.target.value)} className={`w-full ${theme.input} rounded-xl pl-9 pr-3 py-2.5 text-sm outline-none`} />
                         </div>
                       </div>
                     </div>
                   ))}
-                  <button onClick={handleAddContact} className="text-blue-500 font-bold flex items-center gap-1 hover:scale-105 transition-transform mt-2">
-                    <Plus size={18} /> Weiteren Ansprechpartner hinzufügen
+                  <button onClick={handleAddContact} className="text-blue-500 font-bold flex items-center gap-1 hover:text-blue-400 transition-colors mt-2 text-sm">
+                    <Plus size={16} /> Weiteren Ansprechpartner hinzufügen
                   </button>
                 </div>
               </div>
 
               {/* AUFTRAGSÜBERSICHT */}
-              <div className={`${theme.card} rounded-3xl p-6 border ${theme.hover3D}`}>
-                <h2 className={`${theme.title} text-xl font-bold mb-6 flex items-center gap-2 border-b ${isDark ? 'border-[#333]' : 'border-gray-300'} pb-3`}>
-                  <Wrench className="text-orange-500 drop-shadow-md" /> Auftragsübersicht
+              <div className={`${theme.card} rounded-3xl p-6 md:p-8 ${theme.hover3D}`}>
+                <h2 className={`${theme.title} text-xl font-bold mb-6 flex items-center gap-2 border-b ${isDark ? 'border-white/10' : 'border-slate-200'} pb-4`}>
+                  <Wrench className="text-orange-500" /> Auftragsübersicht
                 </h2>
                 <div className="space-y-6">
                   
                   {/* ZEILE 1: Software & Reparaturen */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
-                      <label className="block text-xs uppercase tracking-wider mb-2 font-bold opacity-70">Software</label>
-                      <div className={`flex gap-2 p-1 rounded-xl ${isDark ? 'bg-[#121212] shadow-inner' : 'bg-[#e0e5ec] shadow-[inset_3px_3px_6px_rgba(163,177,198,0.5)]'}`}>
-                        <button onClick={() => setSoftware('komtex')} className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${software === 'komtex' ? 'bg-orange-500 text-white shadow-md transform scale-105' : 'opacity-60 hover:opacity-100'}`}>Komtex</button>
-                        <button onClick={() => setSoftware('fremd')} className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${software === 'fremd' ? 'bg-blue-600 text-white shadow-md transform scale-105' : 'opacity-60 hover:opacity-100'}`}>Fremdsoftware</button>
+                      <label className="block text-xs uppercase tracking-wider mb-2 font-bold opacity-70 pl-1">Software</label>
+                      <div className={`flex gap-2 p-1.5 rounded-xl ${isDark ? 'bg-black/30 border border-white/5' : 'bg-slate-200/50 border border-slate-300/50'}`}>
+                        <button onClick={() => setSoftware('komtex')} className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all duration-300 ${software === 'komtex' ? 'bg-orange-500/90 text-white shadow-md scale-[1.02] border border-orange-400/50' : 'opacity-60 hover:opacity-100 hover:bg-white/5'}`}>Komtex</button>
+                        <button onClick={() => setSoftware('fremd')} className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all duration-300 ${software === 'fremd' ? 'bg-blue-600/90 text-white shadow-md scale-[1.02] border border-blue-500/50' : 'opacity-60 hover:opacity-100 hover:bg-white/5'}`}>Fremd</button>
                       </div>
                     </div>
                     <div>
-                       <label className="block text-xs uppercase tracking-wider mb-2 font-bold opacity-70">Reparaturen</label>
-                       <div className={`flex gap-2 p-1 rounded-xl ${isDark ? 'bg-[#121212] shadow-inner' : 'bg-[#e0e5ec] shadow-[inset_3px_3px_6px_rgba(163,177,198,0.5)]'}`}>
-                        <button onClick={() => setRepairsApproved(true)} className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${repairsApproved === true ? 'bg-green-600 text-white shadow-md transform scale-105' : 'opacity-60 hover:opacity-100'}`}>Genehmigt</button>
-                        <button onClick={() => setRepairsApproved(false)} className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${repairsApproved === false ? 'bg-red-600 text-white shadow-md transform scale-105' : 'opacity-60 hover:opacity-100'}`}>Abgelehnt</button>
+                       <label className="block text-xs uppercase tracking-wider mb-2 font-bold opacity-70 pl-1">Reparaturen</label>
+                       <div className={`flex gap-2 p-1.5 rounded-xl ${isDark ? 'bg-black/30 border border-white/5' : 'bg-slate-200/50 border border-slate-300/50'}`}>
+                        <button onClick={() => setRepairsApproved(true)} className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all duration-300 ${repairsApproved === true ? 'bg-green-600/90 text-white shadow-md scale-[1.02] border border-green-500/50' : 'opacity-60 hover:opacity-100 hover:bg-white/5'}`}>Genehmigt</button>
+                        <button onClick={() => setRepairsApproved(false)} className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all duration-300 ${repairsApproved === false ? 'bg-red-600/90 text-white shadow-md scale-[1.02] border border-red-500/50' : 'opacity-60 hover:opacity-100 hover:bg-white/5'}`}>Abgelehnt</button>
                       </div>
                     </div>
                   </div>
@@ -677,7 +888,7 @@ export default function App() {
                        const key = ['eichaustausch', 'funkumruestung', 'other'][idx];
                        const isActive = orderDetails[key];
                        return (
-                          <button key={key} onClick={() => setOrderDetails({...orderDetails, [key]: !isActive})} className={`py-3 rounded-xl text-sm font-bold transition-all border ${isActive ? 'bg-orange-500 text-white border-orange-400 shadow-[0_5px_15px_rgba(249,115,22,0.4)] transform -translate-y-1' : `${theme.input} hover:-translate-y-1 hover:shadow-md`}`}>
+                          <button key={key} onClick={() => setOrderDetails({...orderDetails, [key]: !isActive})} className={`py-3 rounded-xl text-sm font-bold transition-all duration-300 border ${isActive ? 'bg-orange-500/90 text-white border-orange-400/50 shadow-[0_5px_15px_rgba(249,115,22,0.2)] transform -translate-y-0.5' : `${theme.input} hover:-translate-y-0.5`}`}>
                             {item}
                           </button>
                        )
@@ -687,43 +898,43 @@ export default function App() {
                   {/* ZEILE 3: Lagerung & Altzähler */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
                     <div>
-                      <label className="block text-xs uppercase tracking-wider mb-2 font-bold opacity-70">Lagerung Material</label>
-                      <div className={`flex gap-2 p-1 rounded-xl ${isDark ? 'bg-[#121212] shadow-inner' : 'bg-[#e0e5ec] shadow-[inset_3px_3px_6px_rgba(163,177,198,0.5)]'}`}>
-                        <button onClick={() => setOrderDetails({...orderDetails, storageLocation: 'messtex'})} className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${orderDetails.storageLocation === 'messtex' ? 'bg-purple-600 text-white shadow-md transform scale-105' : 'opacity-60 hover:opacity-100'}`}>Messtex</button>
-                        <button onClick={() => setOrderDetails({...orderDetails, storageLocation: 'auftraggeber'})} className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${orderDetails.storageLocation === 'auftraggeber' ? 'bg-indigo-500 text-white shadow-md transform scale-105' : 'opacity-60 hover:opacity-100'}`}>Auftraggeber</button>
+                      <label className="block text-xs uppercase tracking-wider mb-2 font-bold opacity-70 pl-1">Lagerung Material</label>
+                      <div className={`flex gap-2 p-1.5 rounded-xl ${isDark ? 'bg-black/30 border border-white/5' : 'bg-slate-200/50 border border-slate-300/50'}`}>
+                        <button onClick={() => setOrderDetails({...orderDetails, storageLocation: 'messtex'})} className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all duration-300 ${orderDetails.storageLocation === 'messtex' ? 'bg-purple-600/90 text-white shadow-md scale-[1.02] border border-purple-500/50' : 'opacity-60 hover:opacity-100 hover:bg-white/5'}`}>Messtex</button>
+                        <button onClick={() => setOrderDetails({...orderDetails, storageLocation: 'auftraggeber'})} className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all duration-300 ${orderDetails.storageLocation === 'auftraggeber' ? 'bg-indigo-500/90 text-white shadow-md scale-[1.02] border border-indigo-400/50' : 'opacity-60 hover:opacity-100 hover:bg-white/5'}`}>Kunde</button>
                       </div>
                     </div>
                     <div>
-                       <label className="block text-xs uppercase tracking-wider mb-2 font-bold opacity-70">Altzähler</label>
-                       <div className={`flex gap-2 p-1 rounded-xl ${isDark ? 'bg-[#121212] shadow-inner' : 'bg-[#e0e5ec] shadow-[inset_3px_3px_6px_rgba(163,177,198,0.5)]'}`}>
-                        <button onClick={() => setOrderDetails({...orderDetails, oldMeterDisposal: 'entsorgen'})} className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${orderDetails.oldMeterDisposal === 'entsorgen' ? 'bg-red-500 text-white shadow-md transform scale-105' : 'opacity-60 hover:opacity-100'}`}>Entsorgen</button>
-                        <button onClick={() => setOrderDetails({...orderDetails, oldMeterDisposal: 'abgeben'})} className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${orderDetails.oldMeterDisposal === 'abgeben' ? 'bg-blue-500 text-white shadow-md transform scale-105' : 'opacity-60 hover:opacity-100'}`}>Abgeben</button>
+                       <label className="block text-xs uppercase tracking-wider mb-2 font-bold opacity-70 pl-1">Altzähler</label>
+                       <div className={`flex gap-2 p-1.5 rounded-xl ${isDark ? 'bg-black/30 border border-white/5' : 'bg-slate-200/50 border border-slate-300/50'}`}>
+                        <button onClick={() => setOrderDetails({...orderDetails, oldMeterDisposal: 'entsorgen'})} className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all duration-300 ${orderDetails.oldMeterDisposal === 'entsorgen' ? 'bg-red-500/90 text-white shadow-md scale-[1.02] border border-red-400/50' : 'opacity-60 hover:opacity-100 hover:bg-white/5'}`}>Entsorgen</button>
+                        <button onClick={() => setOrderDetails({...orderDetails, oldMeterDisposal: 'abgeben'})} className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all duration-300 ${orderDetails.oldMeterDisposal === 'abgeben' ? 'bg-blue-500/90 text-white shadow-md scale-[1.02] border border-blue-400/50' : 'opacity-60 hover:opacity-100 hover:bg-white/5'}`}>Abgeben</button>
                       </div>
                     </div>
                   </div>
 
                   {/* ADRESSZEILE FÜR LAGERORT */}
                   <div className="relative">
-                    <Package size={16} className="absolute left-3 top-1/2 transform -translate-y-1/2 opacity-50" />
-                    <input type="text" placeholder="Lagerort des Materials (Straße, PLZ, Ort)" value={orderDetails.storageAddress || ''} onChange={e => setOrderDetails({...orderDetails, storageAddress: e.target.value})} className={`w-full ${theme.input} border rounded-xl pl-9 pr-3 py-3 outline-none transition-all`} />
+                    <Package size={16} className="absolute left-4 top-1/2 transform -translate-y-1/2 opacity-50" />
+                    <input type="text" placeholder="Lagerort des Materials (Straße, PLZ, Ort)" value={orderDetails.storageAddress || ''} onChange={e => setOrderDetails({...orderDetails, storageAddress: e.target.value})} className={`w-full ${theme.input} rounded-xl pl-10 pr-4 py-3 outline-none`} />
                   </div>
 
                   {/* ZEILE 4: Zählerinformationen */}
-                  <div className={`p-4 rounded-2xl ${isDark ? 'bg-[#252525]' : 'bg-[#e0e5ec] shadow-[inset_4px_4px_8px_rgba(163,177,198,0.5)]'}`}>
-                    <h3 className="text-sm font-bold mb-4 opacity-80">Zählerinformationen</h3>
+                  <div className={`p-5 rounded-2xl border ${isDark ? 'bg-black/20 border-white/5' : 'bg-white/50 border-white/40'}`}>
+                    <h3 className="text-sm font-bold mb-4 opacity-80 pl-1">Zählerinformationen</h3>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                      <input type="text" placeholder="Neu: Hersteller" value={meterInfo.newManufacturer} onChange={e => setMeterInfo({...meterInfo, newManufacturer: e.target.value})} className={`${theme.input} border rounded-lg p-2 text-xs outline-none`} />
-                      <input type="text" placeholder="Neu: Typ" value={meterInfo.newType} onChange={e => setMeterInfo({...meterInfo, newType: e.target.value})} className={`${theme.input} border rounded-lg p-2 text-xs outline-none`} />
-                      <input type="text" placeholder="Alt verbaut" value={meterInfo.currentInstalled} onChange={e => setMeterInfo({...meterInfo, currentInstalled: e.target.value})} className={`${theme.input} border rounded-lg p-2 text-xs outline-none`} />
+                      <input type="text" placeholder="Neu: Hersteller" value={meterInfo.newManufacturer} onChange={e => setMeterInfo({...meterInfo, newManufacturer: e.target.value})} className={`w-full ${theme.input} rounded-xl p-3 text-sm outline-none`} />
+                      <input type="text" placeholder="Neu: Typ" value={meterInfo.newType} onChange={e => setMeterInfo({...meterInfo, newType: e.target.value})} className={`w-full ${theme.input} rounded-xl p-3 text-sm outline-none`} />
+                      <input type="text" placeholder="Alt verbaut" value={meterInfo.currentInstalled} onChange={e => setMeterInfo({...meterInfo, currentInstalled: e.target.value})} className={`w-full ${theme.input} rounded-xl p-3 text-sm outline-none`} />
                     </div>
                   </div>
                 </div>
               </div>
 
               {/* LEISTUNGSVERZEICHNIS (LV) */}
-              <div className={`${theme.card} rounded-3xl p-6 border ${theme.hover3D}`}>
-                <h2 className={`${theme.title} text-xl font-bold mb-6 flex items-center justify-between border-b ${isDark ? 'border-[#333]' : 'border-gray-300'} pb-3`}>
-                  <div className="flex items-center gap-2"><Receipt className="text-yellow-500 drop-shadow-md" /> Leistungsverzeichnis</div>
+              <div className={`${theme.card} rounded-3xl p-6 md:p-8 ${theme.hover3D}`}>
+                <h2 className={`${theme.title} text-xl font-bold mb-6 flex items-center justify-between border-b ${isDark ? 'border-white/10' : 'border-slate-200'} pb-4`}>
+                  <div className="flex items-center gap-2"><Receipt className="text-yellow-500" /> Leistungsverzeichnis</div>
                 </h2>
                 <div className="space-y-3">
                   <div className="flex gap-2 text-xs font-bold uppercase tracking-wider opacity-60 px-2">
@@ -735,13 +946,13 @@ export default function App() {
 
                   {lvItems.map((item) => (
                     <div key={item.id} className="flex gap-2 items-center group">
-                      <input type="text" value={item.pos} readOnly className={`w-16 ${theme.input} rounded-lg p-2 text-sm outline-none text-center font-bold opacity-70 cursor-default`} />
-                      <input type="text" placeholder="Leistungsbeschreibung..." value={item.desc} onChange={e => handleLvChange(item.id, 'desc', e.target.value)} className={`flex-1 ${theme.input} rounded-lg p-2 text-sm outline-none`} />
-                      <input type="text" placeholder="z.B. 100,00" value={item.price} onChange={e => handleLvChange(item.id, 'price', e.target.value)} onBlur={(e) => formatPrice(item.id, item.price, e)} onKeyDown={(e) => formatPrice(item.id, item.price, e)} className={`w-24 ${theme.input} rounded-lg p-2 text-sm outline-none text-right`} />
-                      <button onClick={() => removeLvItem(item.id)} className="w-8 h-8 flex items-center justify-center text-red-500 hover:bg-red-500/20 rounded-lg transition-colors opacity-0 group-hover:opacity-100"><Trash2 size={16}/></button>
+                      <input type="text" value={item.pos} readOnly className={`w-16 ${theme.input} rounded-xl p-2.5 text-sm outline-none text-center font-bold opacity-70 cursor-default`} />
+                      <input type="text" placeholder="Leistungsbeschreibung..." value={item.desc} onChange={e => handleLvChange(item.id, 'desc', e.target.value)} className={`flex-1 ${theme.input} rounded-xl p-2.5 text-sm outline-none`} />
+                      <input type="text" placeholder="z.B. 100,00" value={item.price} onChange={e => handleLvChange(item.id, 'price', e.target.value)} onBlur={(e) => formatPrice(item.id, item.price, e)} onKeyDown={(e) => formatPrice(item.id, item.price, e)} className={`w-24 ${theme.input} rounded-xl p-2.5 text-sm outline-none text-right`} />
+                      <button onClick={() => removeLvItem(item.id)} className="w-8 h-8 flex items-center justify-center text-red-400 hover:bg-red-500/20 rounded-lg transition-colors opacity-0 group-hover:opacity-100"><Trash2 size={16}/></button>
                     </div>
                   ))}
-                  <button onClick={addLvItem} className="text-yellow-500 font-bold flex items-center gap-1 hover:scale-105 transition-transform mt-4 text-sm"><Plus size={16} /> Weitere Position hinzufügen</button>
+                  <button onClick={addLvItem} className="text-yellow-500 font-bold flex items-center gap-1 hover:text-yellow-400 transition-colors mt-4 text-sm pl-1"><Plus size={16} /> Weitere Position hinzufügen</button>
                 </div>
               </div>
 
@@ -751,26 +962,26 @@ export default function App() {
             <div className="space-y-8">
 
               {/* KICK-OFF TERMIN */}
-              <div className={`${theme.card} rounded-3xl p-6 border ${theme.hover3D} relative`}>
-                <h2 className={`${theme.title} text-xl font-bold mb-6 flex items-center justify-between border-b ${isDark ? 'border-[#333]' : 'border-gray-300'} pb-3`}>
-                  <span className="flex items-center gap-2"><CalendarIcon className="text-purple-500 drop-shadow-md" /> Start</span>
-                  {kickoffDate === '' && <span className="text-red-500 text-xs flex items-center gap-1"><AlertCircle size={14}/> Pflicht</span>}
+              <div className={`${theme.card} rounded-3xl p-6 md:p-8 ${theme.hover3D} relative`}>
+                <h2 className={`${theme.title} text-xl font-bold mb-6 flex items-center justify-between border-b ${isDark ? 'border-white/10' : 'border-slate-200'} pb-4`}>
+                  <span className="flex items-center gap-2"><CalendarIcon className="text-purple-400" /> Start</span>
+                  {kickoffDate === '' && <span className="text-red-400 text-xs flex items-center gap-1"><AlertCircle size={14}/> Pflicht</span>}
                 </h2>
-                <div className="relative group hover:scale-[1.03] transition-transform duration-300">
+                <div className="relative group hover:scale-[1.02] transition-transform duration-300 cursor-pointer">
                   {kickoffDate && (
-                    <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-gradient-to-r from-purple-600 to-purple-500 text-white text-sm font-bold px-5 py-1.5 rounded-full z-20 shadow-[0_5px_15px_rgba(168,85,247,0.5)] border border-purple-400">
+                    <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-gradient-to-r from-purple-500 to-purple-400 text-white text-sm font-bold px-5 py-1.5 rounded-full z-20 shadow-[0_5px_15px_rgba(168,85,247,0.3)] border border-purple-300/50 backdrop-blur-md">
                       Kalenderwoche {kw}
                     </div>
                   )}
                   
-                  <div className="flex gap-3 mt-2 pointer-events-none">
-                    <div className={`${theme.flipCard} rounded-2xl p-6 flex flex-col items-center justify-center flex-1 relative overflow-hidden`}>
-                      <div className="absolute top-1/2 left-0 w-full h-[2px] bg-black/20 z-10 shadow-sm"></div>
-                      <span className={`text-6xl font-black tracking-tight z-0 ${theme.title}`}>{day}</span>
+                  <div className="flex gap-4 mt-2 pointer-events-none">
+                    <div className={`${theme.flipCard} rounded-2xl p-8 flex flex-col items-center justify-center flex-1 relative overflow-hidden`}>
+                      <div className="absolute top-1/2 left-0 w-full h-[1px] bg-black/20 z-10"></div>
+                      <span className={`text-6xl md:text-7xl font-black tracking-tight z-0 ${theme.title}`}>{day}</span>
                     </div>
-                    <div className={`${theme.flipCard} rounded-2xl p-6 flex flex-col items-center justify-center flex-1 relative overflow-hidden`}>
-                      <div className="absolute top-1/2 left-0 w-full h-[2px] bg-black/20 z-10 shadow-sm"></div>
-                      <span className={`text-5xl font-black tracking-tight z-0 ${theme.title}`}>{month}</span>
+                    <div className={`${theme.flipCard} rounded-2xl p-8 flex flex-col items-center justify-center flex-1 relative overflow-hidden`}>
+                      <div className="absolute top-1/2 left-0 w-full h-[1px] bg-black/20 z-10 shadow-sm"></div>
+                      <span className={`text-5xl md:text-6xl font-black tracking-tight z-0 ${theme.title}`}>{month}</span>
                     </div>
                   </div>
 
@@ -779,183 +990,214 @@ export default function App() {
                     className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-50 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:inset-0 [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:cursor-pointer"
                     onChange={(e) => setKickoffDate(e.target.value)}
                   />
-                  <p className="text-center mt-4 text-sm font-bold opacity-60 group-hover:text-purple-500 transition-colors pointer-events-none">Klicken zum Datum wählen</p>
+                  <p className="text-center mt-6 text-sm font-bold opacity-50 group-hover:text-purple-400 transition-colors pointer-events-none">Klicken zum Datum wählen</p>
                 </div>
               </div>
 
-              {/* STATISCHE CHECKLISTE */}
-              <div className={`${theme.card} rounded-3xl p-6 border ${theme.hover3D}`}>
-                 <h2 className={`${theme.title} text-xl font-bold mb-6 flex items-center gap-2 border-b ${isDark ? 'border-[#333]' : 'border-gray-300'} pb-3`}>
-                  <FileText className="text-green-500 drop-shadow-md" /> Checkliste
+              {/* STATISCHE CHECKLISTE MIT AUSWAHL-CHIPS & MINI-BADGES */}
+              <div className={`${theme.card} rounded-3xl p-6 md:p-8 ${theme.hover3D}`}>
+                 <h2 className={`${theme.title} text-xl font-bold mb-6 flex items-center gap-2 border-b ${isDark ? 'border-white/10' : 'border-slate-200'} pb-4`}>
+                  <FileText className="text-green-500" /> Checkliste
                 </h2>
                 <div className="space-y-4">
                   
                   {/* 1. Parkausweise */}
-                  <div className={`border rounded-2xl overflow-hidden transition-all duration-300 ${tasks.parkausweise ? 'border-green-500/50 bg-green-500/5' : `${isDark ? 'border-[#333] bg-[#252525]' : 'border-gray-300 bg-white'}`}`}>
-                    <div className="p-4 flex items-center justify-between cursor-pointer hover:bg-black/5" onClick={() => setExpandedCard(expandedCard === 'park' ? null : 'park')}>
-                      <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-                        <div className="flex items-center gap-3">
-                           {tasks.parkausweise ? <CheckCircle2 className="text-green-500 shadow-sm rounded-full shrink-0" /> : <Circle className="text-gray-500 shrink-0" />}
-                           <span className="font-bold">Parkausweise / Kennzeichen</span>
+                  <div className={`border rounded-2xl overflow-hidden transition-all duration-300 backdrop-blur-md ${tasks.parkausweise ? 'border-green-500/50 bg-green-500/10' : isDark ? 'border-white/10 bg-white/5' : 'border-slate-200 bg-white/40'}`}>
+                    <div className="p-4 flex items-center justify-between cursor-pointer hover:bg-white/5" onClick={() => setExpandedCard(expandedCard === 'park' ? null : 'park')}>
+                      <div className="flex flex-col sm:flex-row sm:items-center gap-3 w-full">
+                        
+                        <div className="flex items-center gap-3 cursor-pointer z-10 p-1 -ml-1 rounded-lg hover:bg-black/10" onClick={(e) => handleToggleTask('parkausweise', e)} title="Klicken, wenn physische Ausweise eingetroffen sind">
+                           {tasks.parkausweise ? <CheckCircle2 className="text-green-500 shadow-sm rounded-full shrink-0" /> : <Circle className="text-slate-500 shrink-0 hover:text-green-400 transition-colors" />}
+                           <span className="font-bold">Parkausweise erhalten</span>
                         </div>
+
+                        {/* MINI-BADGES IM HEADER (Bis zu 3 Stück + Rest) */}
                         {vehicles.length > 0 && (
-                          <div className="flex flex-wrap gap-1 sm:ml-4">
+                          <div className="flex flex-wrap gap-1 sm:ml-auto pr-2">
                             {vehicles.slice(0, 3).map(v => (
-                              <span key={v} className={`flex items-center gap-1 text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full border ${isDark ? 'bg-[#121212] border-[#444] text-gray-300' : 'bg-white border-gray-300 text-gray-600'}`}>
+                              <span key={v} className={`flex items-center gap-1 text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full border ${isDark ? 'bg-black/30 border-white/10 text-slate-300' : 'bg-white/60 border-slate-200 text-slate-600'}`}>
                                 <Car size={10} /> {v}
                               </span>
                             ))}
                             {vehicles.length > 3 && (
-                              <span className={`text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full border ${isDark ? 'bg-[#121212] border-[#444] text-gray-300' : 'bg-white border-gray-300 text-gray-600'}`}>+{vehicles.length - 3}</span>
+                              <span className={`text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full border ${isDark ? 'bg-black/30 border-white/10 text-slate-300' : 'bg-white/60 border-slate-200 text-slate-600'}`}>+{vehicles.length - 3}</span>
                             )}
                           </div>
                         )}
+                        
                       </div>
-                      {expandedCard === 'park' ? <ChevronUp size={20} className="opacity-60 shrink-0" /> : <ChevronDown size={20} className="opacity-60 shrink-0" />}
+                      {expandedCard === 'park' ? <ChevronUp size={20} className="opacity-50 shrink-0 ml-2" /> : <ChevronDown size={20} className="opacity-50 shrink-0 ml-2" />}
                     </div>
+                    
                     {expandedCard === 'park' && (
-                      <div className={`p-4 border-t ${isDark ? 'border-[#333] bg-[#1a1a1a]' : 'border-gray-200 bg-gray-50'}`}>
-                        <div className="flex gap-2 mb-4">
+                      <div className={`p-4 border-t ${isDark ? 'border-white/10 bg-black/20' : 'border-slate-200 bg-slate-50/50'}`}>
+                        <div className="mb-4">
+                          <p className="text-[10px] font-bold uppercase tracking-wider opacity-50 mb-3 pl-1">Schnellauswahl (Klicken für PDF)</p>
+                          <div className="flex flex-wrap gap-2">
+                            {Array.from(new Set([...defaultVehicles, ...vehicles])).map(v => {
+                               const isSelected = vehicles.includes(v);
+                               return (
+                                 <button 
+                                   key={v} 
+                                   onClick={() => toggleVehicle(v)}
+                                   className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-mono font-bold transition-all duration-300 border ${isSelected ? (isDark ? 'bg-orange-500/90 text-white border-orange-400/50 shadow-[0_0_10px_rgba(249,115,22,0.3)]' : 'bg-orange-500 text-white border-orange-600 shadow-md') : (isDark ? 'bg-black/30 border-white/10 text-slate-300 hover:bg-white/10' : 'bg-white/60 border-slate-200 text-slate-600 hover:bg-white')}`}
+                                 >
+                                   <Car size={12} className={isSelected ? "text-white" : "opacity-50"} /> {v}
+                                 </button>
+                               )
+                            })}
+                          </div>
+                        </div>
+
+                        <div className="flex gap-2">
                           <div className="relative flex-1">
                             <Car size={16} className="absolute left-3 top-1/2 transform -translate-y-1/2 opacity-50" />
-                            <input type="text" placeholder="Kennzeichen (z.B. M-AB 123)" value={newVehicle} onChange={e => setNewVehicle(e.target.value)} onKeyDown={e => e.key === 'Enter' && addVehicle()} className={`w-full ${theme.input} border rounded-xl pl-9 pr-3 py-2 text-sm outline-none`} />
+                            <input type="text" placeholder="Neues Kennzeichen (z.B. M-AB 123)" value={newVehicle} onChange={e => setNewVehicle(e.target.value)} onKeyDown={e => e.key === 'Enter' && addCustomVehicle()} className={`w-full ${theme.input} rounded-xl pl-9 pr-3 py-2 text-sm outline-none`} />
                           </div>
-                          <button onClick={addVehicle} className="bg-green-600 hover:bg-green-500 text-white px-4 rounded-xl text-sm font-bold transition-colors">Hinzufügen</button>
-                        </div>
-                        <div className="flex flex-wrap gap-2">
-                          {vehicles.map((v, i) => (
-                             <span key={i} className={`flex items-center gap-1 border px-3 py-1 rounded-md text-xs font-mono font-bold group ${isDark ? 'border-[#444] bg-[#222]' : 'border-gray-300 bg-white'}`}>
-                               <Car size={12} className="opacity-70" /> {v} 
-                               <button onClick={() => removeVehicle(v)} className="opacity-50 hover:opacity-100 hover:text-red-500 ml-1"><X size={12}/></button>
-                             </span>
-                          ))}
+                          <button onClick={addCustomVehicle} className="bg-white/10 hover:bg-white/20 text-white px-4 rounded-xl text-sm font-bold transition-colors border border-white/20 shadow-sm">Hinzufügen</button>
                         </div>
                       </div>
                     )}
                   </div>
 
                   {/* 2. Mitarbeiterausweise */}
-                  <div className={`border rounded-2xl overflow-hidden transition-all duration-300 ${tasks.mitarbeiter ? 'border-green-500/50 bg-green-500/5' : `${isDark ? 'border-[#333] bg-[#252525]' : 'border-gray-300 bg-white'}`}`}>
-                    <div className="p-4 flex items-center justify-between cursor-pointer hover:bg-black/5" onClick={() => setExpandedCard(expandedCard === 'mitarbeiter' ? null : 'mitarbeiter')}>
-                      <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-                        <div className="flex items-center gap-3">
-                           {tasks.mitarbeiter ? <CheckCircle2 className="text-green-500 shadow-sm rounded-full shrink-0" /> : <Circle className="text-gray-500 shrink-0" />}
-                           <span className="font-bold">Mitarbeiterausweise</span>
+                  <div className={`border rounded-2xl overflow-hidden transition-all duration-300 backdrop-blur-md ${tasks.mitarbeiter ? 'border-green-500/50 bg-green-500/10' : isDark ? 'border-white/10 bg-white/5' : 'border-slate-200 bg-white/40'}`}>
+                    <div className="p-4 flex items-center justify-between cursor-pointer hover:bg-white/5" onClick={() => setExpandedCard(expandedCard === 'mitarbeiter' ? null : 'mitarbeiter')}>
+                      <div className="flex flex-col sm:flex-row sm:items-center gap-3 w-full">
+                        
+                        <div className="flex items-center gap-3 cursor-pointer z-10 p-1 -ml-1 rounded-lg hover:bg-black/10" onClick={(e) => handleToggleTask('mitarbeiter', e)} title="Klicken, wenn physische Ausweise eingetroffen sind">
+                           {tasks.mitarbeiter ? <CheckCircle2 className="text-green-500 shadow-sm rounded-full shrink-0" /> : <Circle className="text-slate-500 shrink-0 hover:text-green-400 transition-colors" />}
+                           <span className="font-bold">Mitarbeiterausweise erhalten</span>
                         </div>
+
+                        {/* MINI-BADGES IM HEADER (Bis zu 3 Stück + Rest) */}
                         {employees.length > 0 && (
-                          <div className="flex flex-wrap gap-1 sm:ml-4">
+                          <div className="flex flex-wrap gap-1 sm:ml-auto pr-2">
                             {employees.slice(0, 3).map(emp => (
-                              <span key={emp} className={`flex items-center gap-1 text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full border ${isDark ? 'bg-[#121212] border-[#444] text-gray-300' : 'bg-white border-gray-300 text-gray-600'}`}>
+                              <span key={emp} className={`flex items-center gap-1 text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full border ${isDark ? 'bg-black/30 border-white/10 text-slate-300' : 'bg-white/60 border-slate-200 text-slate-600'}`}>
                                 <IdCard size={10} /> {emp}
                               </span>
                             ))}
                             {employees.length > 3 && (
-                              <span className={`text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full border ${isDark ? 'bg-[#121212] border-[#444] text-gray-300' : 'bg-white border-gray-300 text-gray-600'}`}>+{employees.length - 3}</span>
+                              <span className={`text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full border ${isDark ? 'bg-black/30 border-white/10 text-slate-300' : 'bg-white/60 border-slate-200 text-slate-600'}`}>+{employees.length - 3}</span>
                             )}
                           </div>
                         )}
+
                       </div>
-                      {expandedCard === 'mitarbeiter' ? <ChevronUp size={20} className="opacity-60 shrink-0" /> : <ChevronDown size={20} className="opacity-60 shrink-0" />}
+                      {expandedCard === 'mitarbeiter' ? <ChevronUp size={20} className="opacity-50 shrink-0 ml-2" /> : <ChevronDown size={20} className="opacity-50 shrink-0 ml-2" />}
                     </div>
+                    
                     {expandedCard === 'mitarbeiter' && (
-                      <div className={`p-4 border-t ${isDark ? 'border-[#333] bg-[#1a1a1a]' : 'border-gray-200 bg-gray-50'}`}>
-                        <div className="flex gap-2 mb-4">
+                      <div className={`p-4 border-t ${isDark ? 'border-white/10 bg-black/20' : 'border-slate-200 bg-slate-50/50'}`}>
+                        
+                        <div className="mb-4">
+                          <p className="text-[10px] font-bold uppercase tracking-wider opacity-50 mb-3 pl-1">Schnellauswahl (Klicken für PDF)</p>
+                          <div className="flex flex-wrap gap-2">
+                            {Array.from(new Set([...defaultEmployees, ...employees])).map(emp => {
+                               const isSelected = employees.includes(emp);
+                               return (
+                                 <button 
+                                   key={emp} 
+                                   onClick={() => toggleEmployee(emp)}
+                                   className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all duration-300 border ${isSelected ? (isDark ? 'bg-orange-500/90 text-white border-orange-400/50 shadow-[0_0_10px_rgba(249,115,22,0.3)]' : 'bg-orange-500 text-white border-orange-600 shadow-md') : (isDark ? 'bg-black/30 border-white/10 text-slate-300 hover:bg-white/10' : 'bg-white/60 border-slate-200 text-slate-600 hover:bg-white')}`}
+                                 >
+                                   <IdCard size={12} className={isSelected ? "text-white" : "opacity-50"} /> {emp}
+                                 </button>
+                               )
+                            })}
+                          </div>
+                        </div>
+
+                        <div className="flex gap-2">
                           <div className="relative flex-1">
                             <IdCard size={16} className="absolute left-3 top-1/2 transform -translate-y-1/2 opacity-50" />
-                            <input type="text" placeholder="Name des Mitarbeiters" value={newEmployee} onChange={e => setNewEmployee(e.target.value)} onKeyDown={e => e.key === 'Enter' && addEmployee()} className={`w-full ${theme.input} border rounded-xl pl-9 pr-3 py-2 text-sm outline-none`} />
+                            <input type="text" placeholder="Neuer Name (z.B. Max Mustermann)" value={newEmployee} onChange={e => setNewEmployee(e.target.value)} onKeyDown={e => e.key === 'Enter' && addCustomEmployee()} className={`w-full ${theme.input} rounded-xl pl-9 pr-3 py-2 text-sm outline-none`} />
                           </div>
-                          <button onClick={addEmployee} className="bg-green-600 hover:bg-green-500 text-white px-4 rounded-xl text-sm font-bold transition-colors">Hinzufügen</button>
-                        </div>
-                        <div className="flex flex-wrap gap-2">
-                          {employees.map((emp, i) => (
-                             <span key={i} className={`flex items-center gap-1 border px-3 py-1 rounded-md text-xs font-bold group ${isDark ? 'border-[#444] bg-[#222]' : 'border-gray-300 bg-white'}`}>
-                               <IdCard size={12} className="opacity-70" /> {emp} 
-                               <button onClick={() => removeEmployee(emp)} className="opacity-50 hover:opacity-100 hover:text-red-500 ml-1"><X size={12}/></button>
-                             </span>
-                          ))}
+                          <button onClick={addCustomEmployee} className="bg-white/10 hover:bg-white/20 text-white px-4 rounded-xl text-sm font-bold transition-colors border border-white/20 shadow-sm">Hinzufügen</button>
                         </div>
                       </div>
                     )}
                   </div>
 
                   {/* 3. Datensatz */}
-                  <div className={`p-4 rounded-2xl border transition-all duration-300 shadow-sm flex flex-col xl:flex-row xl:items-center justify-between gap-4 ${tasks.datensatz ? 'border-green-500 bg-green-500/10' : `border-red-400/50 ${isDark ? 'bg-[#252525]' : 'bg-white'}`}`}>
+                  <div className={`p-4 rounded-2xl border transition-all duration-300 shadow-sm flex flex-col xl:flex-row xl:items-center justify-between gap-4 backdrop-blur-md ${tasks.datensatz ? 'border-green-500/50 bg-green-500/10' : isDark ? 'border-white/10 bg-white/5' : 'border-slate-200 bg-white/40'}`}>
                     <div className="flex items-center gap-3">
-                      {tasks.datensatz ? <CheckCircle2 className="text-green-500 shadow-sm rounded-full" /> : <AlertCircle className="text-red-500" />}
+                      {tasks.datensatz ? <CheckCircle2 className="text-green-500 shadow-sm rounded-full" /> : <AlertCircle className="text-red-400" />}
                       <span className="font-bold">Datensatz erhalten</span>
                     </div>
                     {files?.datensatz ? (
-                      <div className={`flex flex-wrap items-center gap-2 px-3 py-1.5 rounded-lg ${theme.input}`}>
-                        <span className="text-xs text-green-500 font-bold truncate max-w-[100px]">{files.datensatz?.name || 'Datei'}</span>
+                      <div className={`flex flex-wrap items-center gap-2 px-3 py-1.5 rounded-xl ${theme.input}`}>
+                        <span className="text-xs text-green-400 font-bold truncate max-w-[100px]">{files.datensatz?.name || 'Datei'}</span>
                         <div className="flex gap-1 ml-auto">
-                           <a href={files.datensatz?.url || '#'} download={files.datensatz?.name || 'download'} target="_blank" rel="noopener noreferrer" className="p-1.5 bg-blue-500 hover:bg-blue-600 text-white rounded transition-colors" title="Herunterladen"><Download size={14}/></a>
-                           <button onClick={() => removeFile('datensatz')} className="p-1.5 bg-red-500 hover:bg-red-600 text-white rounded transition-colors" title="Löschen"><Trash2 size={14}/></button>
+                           <a href={files.datensatz?.url || '#'} download={files.datensatz?.name || 'download'} target="_blank" rel="noopener noreferrer" className="p-1.5 bg-blue-500/80 hover:bg-blue-500 text-white rounded-lg transition-colors border border-blue-400/50" title="Herunterladen"><Download size={14}/></a>
+                           <button onClick={() => removeFile('datensatz')} className="p-1.5 bg-red-500/80 hover:bg-red-500 text-white rounded-lg transition-colors border border-red-400/50" title="Löschen"><Trash2 size={14}/></button>
                         </div>
                       </div>
                     ) : (
-                      <label className={`flex items-center gap-2 px-4 py-2 rounded-xl cursor-pointer text-sm font-bold transition-all hover:scale-105 shadow-md ${isDark ? 'bg-[#333] hover:bg-[#444] text-white' : 'bg-white border text-gray-800'}`}>
+                      <label className={`flex items-center gap-2 px-4 py-2 rounded-xl cursor-pointer text-sm font-bold transition-all hover:scale-105 shadow-sm border ${isDark ? 'bg-white/10 hover:bg-white/20 text-white border-white/20' : 'bg-white border-slate-300 text-slate-700'}`}>
                         <UploadCloud size={16} /> Upload <input type="file" className="hidden" onChange={(e) => handleFileUpload('datensatz', e)} />
                       </label>
                     )}
                   </div>
 
                   {/* 4. Ankündigung */}
-                  <div className={`p-4 rounded-2xl border transition-all duration-300 shadow-sm flex flex-col xl:flex-row xl:items-center justify-between gap-4 ${tasks.ankuendigung ? 'border-green-500 bg-green-500/10' : `border-red-400/50 ${isDark ? 'bg-[#252525]' : 'bg-white'}`}`}>
+                  <div className={`p-4 rounded-2xl border transition-all duration-300 shadow-sm flex flex-col xl:flex-row xl:items-center justify-between gap-4 backdrop-blur-md ${tasks.ankuendigung ? 'border-green-500/50 bg-green-500/10' : isDark ? 'border-white/10 bg-white/5' : 'border-slate-200 bg-white/40'}`}>
                     <div className="flex items-center gap-3">
-                      {tasks.ankuendigung ? <CheckCircle2 className="text-green-500 shadow-sm rounded-full" /> : <AlertCircle className="text-red-500" />}
+                      {tasks.ankuendigung ? <CheckCircle2 className="text-green-500 shadow-sm rounded-full" /> : <AlertCircle className="text-red-400" />}
                       <span className="font-bold">Ankündigung freigegeben</span>
                     </div>
                     {files?.ankuendigung ? (
-                      <div className={`flex flex-wrap items-center gap-2 px-3 py-1.5 rounded-lg ${theme.input}`}>
-                        <span className="text-xs text-green-500 font-bold truncate max-w-[100px]">{files.ankuendigung?.name || 'Datei'}</span>
+                      <div className={`flex flex-wrap items-center gap-2 px-3 py-1.5 rounded-xl ${theme.input}`}>
+                        <span className="text-xs text-green-400 font-bold truncate max-w-[100px]">{files.ankuendigung?.name || 'Datei'}</span>
                         <div className="flex gap-1 ml-auto">
-                           <button onClick={() => setPreviewFile(files.ankuendigung)} className="p-1.5 bg-blue-500 hover:bg-blue-600 text-white rounded transition-colors" title="Vorschau ansehen"><Eye size={14}/></button>
-                           <a href={files.ankuendigung?.url || '#'} download={files.ankuendigung?.name || 'download'} target="_blank" rel="noopener noreferrer" className="p-1.5 bg-[#444] hover:bg-gray-500 text-white rounded transition-colors" title="Herunterladen"><Download size={14}/></a>
-                           <button onClick={() => removeFile('ankuendigung')} className="p-1.5 bg-red-500 hover:bg-red-600 text-white rounded transition-colors" title="Löschen"><Trash2 size={14}/></button>
+                           <button onClick={() => setPreviewFile(files.ankuendigung)} className="p-1.5 bg-blue-500/80 hover:bg-blue-500 text-white rounded-lg transition-colors border border-blue-400/50" title="Vorschau ansehen"><Eye size={14}/></button>
+                           <a href={files.ankuendigung?.url || '#'} download={files.ankuendigung?.name || 'download'} target="_blank" rel="noopener noreferrer" className="p-1.5 bg-white/10 hover:bg-white/20 text-white rounded-lg transition-colors border border-white/20" title="Herunterladen"><Download size={14}/></a>
+                           <button onClick={() => removeFile('ankuendigung')} className="p-1.5 bg-red-500/80 hover:bg-red-500 text-white rounded-lg transition-colors border border-red-400/50" title="Löschen"><Trash2 size={14}/></button>
                         </div>
                       </div>
                     ) : (
-                      <label className={`flex items-center gap-2 px-4 py-2 rounded-xl cursor-pointer text-sm font-bold transition-all hover:scale-105 shadow-md ${isDark ? 'bg-[#333] hover:bg-[#444] text-white' : 'bg-white border text-gray-800'}`}>
+                      <label className={`flex items-center gap-2 px-4 py-2 rounded-xl cursor-pointer text-sm font-bold transition-all hover:scale-105 shadow-sm border ${isDark ? 'bg-white/10 hover:bg-white/20 text-white border-white/20' : 'bg-white border-slate-300 text-slate-700'}`}>
                         <UploadCloud size={16} /> Upload <input type="file" className="hidden" accept=".pdf" onChange={(e) => handleFileUpload('ankuendigung', e)} />
                       </label>
                     )}
                   </div>
 
                   {/* 5. Import */}
-                  <div onClick={() => setTasks(prev => ({ ...prev, datenimport: !prev.datenimport }))} className={`p-4 rounded-2xl border transition-all duration-300 shadow-sm flex items-center justify-between cursor-pointer hover:scale-[1.02] ${tasks.datenimport ? 'border-green-500 bg-green-500/10' : `border-red-400/50 ${isDark ? 'bg-[#252525]' : 'bg-white'}`}`}>
+                  <div onClick={() => handleToggleTask('datenimport', { stopPropagation: () => {} })} className={`p-4 rounded-2xl border transition-all duration-300 shadow-sm flex items-center justify-between cursor-pointer hover:scale-[1.02] backdrop-blur-md ${tasks.datenimport ? 'border-green-500/50 bg-green-500/10' : isDark ? 'border-white/10 bg-white/5 hover:bg-white/10' : 'border-slate-200 bg-white/40 hover:bg-white/60'}`}>
                     <div className="flex items-center gap-3">
-                      {tasks.datenimport ? <CheckCircle2 className="text-green-500 shadow-sm rounded-full" /> : <AlertCircle className="text-red-500" />}
+                      {tasks.datenimport ? <CheckCircle2 className="text-green-500 shadow-sm rounded-full" /> : <AlertCircle className="text-red-400" />}
                       <span className="font-bold">Datensatz importiert</span>
                     </div>
-                    {!tasks.datenimport && <span className="text-xs opacity-60 font-bold">Klicken zum Abhaken</span>}
+                    {!tasks.datenimport && <span className="text-xs opacity-50 font-bold">Klicken zum Abhaken</span>}
                   </div>
                 </div>
               </div>
 
               {/* NOTIZEN & ZUSATZDOKUMENTE */}
-              <div className={`${theme.card} rounded-3xl p-6 border ${theme.hover3D}`}>
-                <h2 className={`${theme.title} text-xl font-bold mb-6 flex items-center gap-2 border-b ${isDark ? 'border-[#333]' : 'border-gray-300'} pb-3`}>
-                  <MessageSquare className="text-pink-500 drop-shadow-md" /> Notizen & Dokumente
+              <div className={`${theme.card} rounded-3xl p-6 md:p-8 ${theme.hover3D}`}>
+                <h2 className={`${theme.title} text-xl font-bold mb-6 flex items-center gap-2 border-b ${isDark ? 'border-white/10' : 'border-slate-200'} pb-4`}>
+                  <MessageSquare className="text-pink-400" /> Notizen & Dokumente
                 </h2>
-                <textarea placeholder="Projekt-Infos, Absprachen, Codes für den Schlüsseltresor..." value={notes} onChange={(e) => setNotes(e.target.value)} className={`w-full ${theme.input} rounded-xl p-4 text-sm outline-none resize-none min-h-[120px] mb-6`}></textarea>
+                <textarea placeholder="Projekt-Infos, Absprachen, Codes für den Schlüsseltresor..." value={notes} onChange={(e) => setNotes(e.target.value)} className={`w-full ${theme.input} rounded-2xl p-5 text-sm outline-none resize-none min-h-[120px] mb-6 leading-relaxed`}></textarea>
                 <div>
                   <div className="flex items-center justify-between mb-4">
                     <span className="text-sm font-bold uppercase tracking-wider opacity-70">Zusätzliche Dateien</span>
-                    <label className={`flex items-center gap-2 px-3 py-1.5 rounded-lg cursor-pointer text-xs font-bold transition-all hover:scale-105 shadow-md ${isDark ? 'bg-[#333] hover:bg-[#444] text-white' : 'bg-white border text-gray-800'}`}>
+                    <label className={`flex items-center gap-2 px-3 py-1.5 rounded-xl cursor-pointer text-xs font-bold transition-all hover:scale-105 shadow-sm border ${isDark ? 'bg-white/10 hover:bg-white/20 text-white border-white/20' : 'bg-white border-slate-300 text-slate-700'}`}>
                       <Paperclip size={14} /> Hinzufügen <input type="file" multiple className="hidden" onChange={handleExtraFileUpload} />
                     </label>
                   </div>
                   <div className="space-y-2">
                     {extraFiles?.length === 0 && <p className="text-xs opacity-50 italic">Noch keine Dokumente hochgeladen.</p>}
                     {extraFiles?.map(file => (
-                       <div key={file.id} className={`flex items-center justify-between p-2 rounded-lg border ${isDark ? 'bg-[#1a1a1a] border-[#333]' : 'bg-gray-50 border-gray-200'}`}>
+                       <div key={file.id} className={`flex items-center justify-between p-3 rounded-xl border backdrop-blur-md ${isDark ? 'bg-black/20 border-white/5' : 'bg-white/50 border-slate-200'}`}>
                           <span className="text-xs font-bold truncate max-w-[200px]">{file?.name || 'Dokument'}</span>
-                          <div className="flex gap-1">
+                          <div className="flex gap-1.5">
                              {(file?.type?.includes('pdf') || file?.type?.includes('image')) && (
-                               <button onClick={() => setPreviewFile(file)} className="p-1.5 bg-blue-500 hover:bg-blue-600 text-white rounded transition-colors" title="Vorschau ansehen"><Eye size={12}/></button>
+                               <button onClick={() => setPreviewFile(file)} className="p-1.5 bg-blue-500/80 hover:bg-blue-500 text-white rounded-lg transition-colors border border-blue-400/50" title="Vorschau ansehen"><Eye size={14}/></button>
                              )}
-                             <a href={file?.url || '#'} download={file?.name || 'download'} target="_blank" rel="noopener noreferrer" className="p-1.5 bg-[#444] hover:bg-gray-500 text-white rounded transition-colors" title="Herunterladen"><Download size={12}/></a>
-                             <button onClick={() => removeExtraFile(file.id)} className="p-1.5 bg-red-500 hover:bg-red-600 text-white rounded transition-colors" title="Löschen"><Trash2 size={12}/></button>
+                             <a href={file?.url || '#'} download={file?.name || 'download'} target="_blank" rel="noopener noreferrer" className="p-1.5 bg-white/10 hover:bg-white/20 text-white rounded-lg transition-colors border border-white/20" title="Herunterladen"><Download size={14}/></a>
+                             <button onClick={() => removeExtraFile(file.id)} className="p-1.5 bg-red-500/80 hover:bg-red-500 text-white rounded-lg transition-colors border border-red-400/50" title="Löschen"><Trash2 size={14}/></button>
                           </div>
                        </div>
                     ))}
