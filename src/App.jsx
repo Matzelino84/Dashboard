@@ -14,6 +14,7 @@ export default function App() {
   const [isDark, setIsDark] = useState(true); 
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [showHome, setShowHome] = useState(true); 
+  const [isTransitioning, setIsTransitioning] = useState(false); // NEU: Steuert den weichen Fade & Lift Effekt
   const [previewFile, setPreviewFile] = useState(null); 
   
   const [currentProjectId, setCurrentProjectId] = useState(null);
@@ -126,12 +127,10 @@ export default function App() {
 
   const fetchProjectsFromSupabase = async () => {
     if (!session) return;
-    // HIER WIRD NUN AUCH DAS KICKOFF-DATUM GELADEN
     const { data } = await supabase.from('projects').select('id, company_name, progress_percentage, is_ready_to_start, kickoff_date');
     if (data) {
-      // SORTIERUNG NACH DATUM (Nächstes zuerst)
       const sortedData = data.sort((a, b) => {
-        if (!a.kickoff_date) return 1; // Projekte ohne Datum ans Ende
+        if (!a.kickoff_date) return 1;
         if (!b.kickoff_date) return -1;
         return new Date(a.kickoff_date) - new Date(b.kickoff_date);
       });
@@ -144,7 +143,6 @@ export default function App() {
   }, [session]);
 
   const loadProject = async (id) => {
-    setIsSidebarOpen(false);
     const { data } = await supabase.from('projects').select('*').eq('id', id).single();
     if (data) {
       setCurrentProjectId(data.id);
@@ -167,7 +165,32 @@ export default function App() {
   };
 
   const resetToNewProject = () => {
-    setCurrentProjectId(null); setCompanyName('Neues Projekt'); setCustomerData({ street: '', city: '', phone: '', email: '' }); setContacts([{ id: 1, name: '', position: '', phone: '', email: '' }]); setOrderDetails({ quantity: '', conditions: '', eichaustausch: false, funkumruestung: false, other: false, oldMeterDisposal: null, storageLocation: null, storageAddress: '' }); setSoftware(null); setRepairsApproved(null); setMeterInfo({ newManufacturer: '', newType: '', currentInstalled: '' }); setVehicles([]); setEmployees([]); setTasks({ parkausweise: false, mitarbeiter: false, datensatz: false, ankuendigung: false, datenimport: false }); setLvItems([{ id: Date.now(), pos: '1.01', desc: 'Zählertausch Standard', price: '' }]); setNotes(''); setKickoffDate(''); setFiles({ datensatz: null, ankuendigung: null, auftragsdokument: null }); setExtraFiles([]); setIsSidebarOpen(false);
+    setCurrentProjectId(null); setCompanyName('Neues Projekt'); setCustomerData({ street: '', city: '', phone: '', email: '' }); setContacts([{ id: 1, name: '', position: '', phone: '', email: '' }]); setOrderDetails({ quantity: '', conditions: '', eichaustausch: false, funkumruestung: false, other: false, oldMeterDisposal: null, storageLocation: null, storageAddress: '' }); setSoftware(null); setRepairsApproved(null); setMeterInfo({ newManufacturer: '', newType: '', currentInstalled: '' }); setVehicles([]); setEmployees([]); setTasks({ parkausweise: false, mitarbeiter: false, datensatz: false, ankuendigung: false, datenimport: false }); setLvItems([{ id: Date.now(), pos: '1.01', desc: 'Zählertausch Standard', price: '' }]); setNotes(''); setKickoffDate(''); setFiles({ datensatz: null, ankuendigung: null, auftragsdokument: null }); setExtraFiles([]);
+  };
+
+  // NEU: Zentrale Navigations-Funktion mit eleganter Fade & Lift Animation
+  const navigateTo = (destination, id = null) => {
+    setIsSidebarOpen(false); // Sidebar auf jeden Fall zu
+    setIsTransitioning(true); // Animation Out starten
+    
+    setTimeout(() => {
+      // Nach 300ms ist das Bild unsichtbar, jetzt laden wir die neuen Daten
+      if (destination === 'project') {
+        loadProject(id);
+        setShowHome(false);
+      } else if (destination === 'new') {
+        resetToNewProject();
+        setShowHome(false);
+      } else if (destination === 'home') {
+        setShowHome(true);
+      }
+      
+      // Einen winzigen Moment warten, damit React das DOM bauen kann, dann Animation In
+      setTimeout(() => {
+        setIsTransitioning(false);
+      }, 50);
+      
+    }, 300); // Dauer des Fade-Outs
   };
 
   const deleteProject = async (e, id) => {
@@ -264,7 +287,6 @@ export default function App() {
     }
   };
 
-  // DATUMS HILFSFUNKTION (Für das Dashboard und das Einzelprojekt)
   const getWeekNumber = (d) => {
     if (!d) return '--';
     const date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
@@ -289,6 +311,9 @@ export default function App() {
     flipCard: isDark ? 'bg-[#202020] border-[#333] shadow-lg' : 'bg-[#e0e5ec] border-white shadow-[5px_5px_10px_rgba(163,177,198,0.5),-5px_-5px_10px_rgba(255,255,255,0.8)]',
     hover3D: 'transition-all duration-300 hover:-translate-y-2 hover:shadow-2xl',
   };
+
+  // ANIMATIONS KLASSE FÜR DEN CONTENT
+  const transitionClass = `transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)] transform ${isTransitioning ? 'opacity-0 translate-y-8 scale-[0.98]' : 'opacity-100 translate-y-0 scale-100'}`;
 
   // ==========================================
   // VIEW 1: LOGIN SCREEN
@@ -338,11 +363,11 @@ export default function App() {
   // ==========================================
   if (showHome) {
     return (
-      <div className={`min-h-screen ${theme.bg} ${theme.text} font-sans selection:bg-green-500/30 transition-colors duration-500 p-4 md:p-8`}>
-        <div className="max-w-7xl mx-auto space-y-8">
+      <div className={`min-h-screen ${theme.bg} ${theme.text} font-sans selection:bg-green-500/30 transition-colors duration-500 p-4 md:p-8 overflow-x-hidden`}>
+        <div className={`max-w-7xl mx-auto space-y-8 ${transitionClass}`}>
           
           {/* HEADER */}
-          <div className={`${theme.card} p-6 md:p-8 rounded-3xl border relative overflow-hidden transition-colors duration-500 flex flex-col md:flex-row md:items-center justify-between gap-4`}>
+          <div className={`${theme.card} p-6 md:p-8 rounded-3xl border relative overflow-hidden transition-colors duration-500 flex flex-col md:flex-row md:items-center justify-between gap-4 z-10`}>
             <div className="absolute top-0 left-0 w-2 h-full bg-gradient-to-b from-blue-400 to-blue-600 shadow-[0_0_15px_rgba(59,130,246,0.5)]"></div>
             
             <h1 className={`text-3xl md:text-4xl font-black flex items-center gap-4 ml-4 ${theme.title}`}>
@@ -364,22 +389,25 @@ export default function App() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             
             {/* Karte: NEUES PROJEKT */}
-            <div onClick={() => { resetToNewProject(); setShowHome(false); }} className={`${theme.card} p-8 rounded-3xl border-2 border-dashed flex flex-col items-center justify-center cursor-pointer transition-all hover:scale-105 group min-h-[220px] ${isDark ? 'border-[#444] hover:border-green-500' : 'border-gray-400 hover:border-green-500'}`}>
+            <div onClick={() => navigateTo('new')} className={`${theme.card} p-8 rounded-3xl border-2 border-dashed flex flex-col items-center justify-center cursor-pointer transition-all duration-300 hover:scale-105 group min-h-[220px] ${isDark ? 'border-[#444] hover:border-green-500' : 'border-gray-400 hover:border-green-500'}`}>
                <Plus size={56} className="text-gray-400 group-hover:text-green-500 transition-colors mb-4 drop-shadow-md" />
                <span className="font-bold text-lg text-gray-500 group-hover:text-green-500 transition-colors uppercase tracking-wider">Neues Projekt</span>
             </div>
 
             {/* Karten: BESTEHENDE PROJEKTE */}
             {projectsList.map(p => {
-               // Datum formatieren für die Mini-Klappuhr
                const pDate = p.kickoff_date ? new Date(p.kickoff_date) : null;
                const pDay = pDate ? pDate.getDate().toString().padStart(2, '0') : '--';
                const pMonth = pDate ? pDate.toLocaleString('de-DE', { month: 'short' }).toUpperCase() : '--';
                const pKw = getWeekNumber(pDate);
 
                return (
-                 <div key={p.id} onClick={() => { loadProject(p.id); setShowHome(false); }} className={`${theme.card} p-6 rounded-3xl border transition-all hover:scale-105 cursor-pointer relative group flex flex-col justify-between min-h-[220px] ${isDark ? 'border-[#333] hover:border-blue-500' : 'border-transparent hover:border-blue-500'}`}>
-                    <button onClick={(e) => deleteProject(e, p.id)} className="absolute top-4 right-4 p-2 text-gray-500 hover:bg-red-500/20 hover:text-red-500 rounded-xl opacity-0 group-hover:opacity-100 transition-all z-10">
+                 <div 
+                   key={p.id} 
+                   onClick={() => navigateTo('project', p.id)} 
+                   className={`${theme.card} p-6 rounded-3xl border transition-all duration-300 hover:scale-105 cursor-pointer relative group flex flex-col justify-between min-h-[220px] ${isDark ? 'border-[#333] hover:border-blue-500' : 'border-transparent hover:border-blue-500'}`}
+                 >
+                    <button onClick={(e) => deleteProject(e, p.id)} className="absolute top-4 right-4 p-2 text-gray-500 hover:bg-red-500/20 hover:text-red-500 rounded-xl opacity-0 group-hover:opacity-100 transition-all z-20">
                       <Trash2 size={20} />
                     </button>
                     
@@ -437,7 +465,7 @@ export default function App() {
   // VIEW 3: PROJECT DETAIL SCREEN
   // ==========================================
   return (
-    <div className={`min-h-screen ${theme.bg} ${theme.text} font-sans selection:bg-green-500/30 transition-colors duration-500 relative`}>
+    <div className={`min-h-screen ${theme.bg} ${theme.text} font-sans selection:bg-green-500/30 transition-colors duration-500 relative overflow-x-hidden`}>
       
       {/* VORSCHAU MODAL */}
       {previewFile && (
@@ -475,19 +503,18 @@ export default function App() {
         </div>
         <div className="p-4 space-y-4 overflow-y-auto h-[calc(100vh-80px)] custom-scrollbar">
            
-           {/* ZURÜCK ZUM DASHBOARD BUTTON */}
-           <button onClick={() => { setShowHome(true); setIsSidebarOpen(false); }} className={`w-full py-3 rounded-xl border font-bold flex items-center justify-center gap-2 transition-all hover:scale-105 shadow-sm ${isDark ? 'border-[#444] bg-[#222] hover:bg-[#333] text-white' : 'border-gray-300 bg-white hover:bg-gray-50 text-gray-800'}`}>
+           <button onClick={() => navigateTo('home')} className={`w-full py-3 rounded-xl border font-bold flex items-center justify-center gap-2 transition-all hover:scale-105 shadow-sm ${isDark ? 'border-[#444] bg-[#222] hover:bg-[#333] text-white' : 'border-gray-300 bg-white hover:bg-gray-50 text-gray-800'}`}>
              <Home size={18} /> Zurück zur Übersicht
            </button>
 
            <div className="my-4 border-b border-gray-500/20"></div>
 
-           <button onClick={() => { resetToNewProject(); setIsSidebarOpen(false); }} className={`w-full py-3 rounded-xl border-2 border-dashed font-bold flex items-center justify-center gap-2 transition-all hover:scale-105 ${isDark ? 'border-[#444] text-gray-400 hover:border-green-500 hover:text-green-500 bg-[#121212]' : 'border-gray-400 text-gray-600 hover:border-green-600 hover:text-green-600 bg-transparent'}`}><Plus size={18} /> Neues Projekt</button>
+           <button onClick={() => navigateTo('new')} className={`w-full py-3 rounded-xl border-2 border-dashed font-bold flex items-center justify-center gap-2 transition-all hover:scale-105 ${isDark ? 'border-[#444] text-gray-400 hover:border-green-500 hover:text-green-500 bg-[#121212]' : 'border-gray-400 text-gray-600 hover:border-green-600 hover:text-green-600 bg-transparent'}`}><Plus size={18} /> Neues Projekt</button>
            
            {projectsList.length === 0 && <p className="text-center text-xs opacity-50 mt-10">Noch keine Projekte in der Datenbank.</p>}
            
            {projectsList.map(p => (
-              <div key={p.id} onClick={() => loadProject(p.id)} className={`p-4 rounded-xl cursor-pointer transition-all hover:scale-105 border relative group ${currentProjectId === p.id ? 'border-blue-500 shadow-[0_0_10px_rgba(59,130,246,0.3)]' : isDark ? 'border-[#333] hover:border-green-500 bg-[#252525]' : 'border-transparent hover:border-green-500 bg-[#e0e5ec] shadow-[5px_5px_10px_rgba(163,177,198,0.5),-5px_-5px_10px_rgba(255,255,255,0.8)]'}`}>
+              <div key={p.id} onClick={() => navigateTo('project', p.id)} className={`p-4 rounded-xl cursor-pointer transition-all hover:scale-105 border relative group flex flex-col justify-between ${currentProjectId === p.id ? 'border-blue-500 shadow-[0_0_10px_rgba(59,130,246,0.3)]' : isDark ? 'border-[#333] hover:border-green-500 bg-[#252525]' : 'border-transparent hover:border-green-500 bg-[#e0e5ec] shadow-[5px_5px_10px_rgba(163,177,198,0.5),-5px_-5px_10px_rgba(255,255,255,0.8)]'}`}>
                  <div className="flex justify-between items-start mb-2">
                    <h3 className={`font-bold truncate pr-6 ${theme.title}`}>{p.company_name}</h3>
                    <button onClick={(e) => deleteProject(e, p.id)} className="absolute top-3 right-3 text-gray-500 hover:text-red-500 hover:scale-110 transition-all opacity-0 group-hover:opacity-100" title="Projekt löschen"><Trash2 size={16} /></button>
@@ -502,8 +529,8 @@ export default function App() {
         </div>
       </div>
 
-      {/* HAUPTINHALT */}
-      <div className="p-4 md:p-8 pb-24">
+      {/* HAUPTINHALT (Mit Fade & Lift Animation) */}
+      <div className={`p-4 md:p-8 pb-24 ${transitionClass}`}>
         <div className="max-w-7xl mx-auto space-y-8">
           
           {/* HEADER */}
@@ -512,7 +539,7 @@ export default function App() {
             
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
               <div className="flex items-center gap-4 w-full">
-                <button onClick={() => setShowHome(true)} className={`p-3 rounded-2xl flex-shrink-0 transition-all duration-300 hover:scale-105 ${isDark ? 'bg-[#2a2a2a] text-white shadow-[inset_2px_2px_5px_rgba(0,0,0,0.5)]' : 'bg-white text-gray-800 shadow-[5px_5px_10px_rgba(163,177,198,0.5),-5px_-5px_10px_rgba(255,255,255,0.8)]'}`} title="Zurück zur Übersicht"><Home size={24} /></button>
+                <button onClick={() => navigateTo('home')} className={`p-3 rounded-2xl flex-shrink-0 transition-all duration-300 hover:scale-105 ${isDark ? 'bg-[#2a2a2a] text-white shadow-[inset_2px_2px_5px_rgba(0,0,0,0.5)]' : 'bg-white text-gray-800 shadow-[5px_5px_10px_rgba(163,177,198,0.5),-5px_-5px_10px_rgba(255,255,255,0.8)]'}`} title="Zurück zur Übersicht"><Home size={24} /></button>
                 <button onClick={() => setIsSidebarOpen(true)} className={`p-3 rounded-2xl flex-shrink-0 transition-all duration-300 hover:scale-105 ${isDark ? 'bg-[#2a2a2a] text-white shadow-[inset_2px_2px_5px_rgba(0,0,0,0.5)]' : 'bg-white text-gray-800 shadow-[5px_5px_10px_rgba(163,177,198,0.5),-5px_-5px_10px_rgba(255,255,255,0.8)]'}`} title="Projekte Menü"><Menu size={24} /></button>
                 <input type="text" value={companyName} onChange={(e) => setCompanyName(e.target.value)} className={`text-4xl md:text-5xl lg:text-6xl font-extrabold bg-transparent border-none outline-none w-full truncate ${isDark ? 'text-white' : 'text-gray-800 drop-shadow-md'}`} placeholder="Firmenname..." />
               </div>
