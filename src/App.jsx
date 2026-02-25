@@ -185,8 +185,8 @@ export default function App() {
     setSoftware(null); 
     setRepairsApproved(null); 
     setMeterInfo({ newManufacturer: '', newType: '', currentInstalled: '' }); 
-    setVehicles([]); // Startet komplett leer -> Du musst die Chips erst anklicken!
-    setEmployees([]); // Startet komplett leer
+    setVehicles([]); 
+    setEmployees([]); 
     setTasks({ parkausweise: false, mitarbeiter: false, datensatz: false, ankuendigung: false, datenimport: false }); 
     setLvItems([{ id: Date.now(), pos: '1.01', desc: 'Zählertausch Standard', price: '' }]); 
     setNotes(''); 
@@ -362,7 +362,6 @@ export default function App() {
       
       y += 15;
 
-      // Nur ausgewählte Autos/Mitarbeiter ins PDF übernehmen
       if(employees.length > 0 || vehicles.length > 0) {
         doc.setFontSize(14);
         doc.setFont('helvetica', 'bold');
@@ -410,10 +409,9 @@ export default function App() {
     }
   };
 
-  // --- NEUE FUNKTIONEN FÜR CHIPS-AUSWAHL ---
+  const handleAddContact = () => setContacts([...contacts, { id: Date.now(), name: '', position: '', phone: '', email: '' }]);
   const handleContactChange = (id, field, value) => setContacts(contacts.map(c => c.id === id ? { ...c, [field]: value } : c));
   const removeContact = (id) => setContacts(contacts.filter(c => c.id !== id));
-  const handleAddContact = () => setContacts([...contacts, { id: Date.now(), name: '', position: '', phone: '', email: '' }]);
 
   const toggleVehicle = (v) => {
     if (vehicles.includes(v)) { setVehicles(vehicles.filter(item => item !== v)); } 
@@ -516,20 +514,20 @@ export default function App() {
   const month = dateObj ? dateObj.toLocaleString('de-DE', { month: 'short' }).toUpperCase() : '--';
   const kw = getWeekNumber(dateObj);
 
-  // --- THEME STYLING (APPLE GLASSMORPHISM) ---
+  // --- THEME STYLING (APPLE GLASSMORPHISM ABDUNKELUNG LIGHT-MODE) ---
   const theme = {
-    bg: isDark ? 'bg-[#09090b]' : 'bg-slate-50',
+    bg: isDark ? 'bg-[#09090b]' : 'bg-slate-200', 
     text: isDark ? 'text-slate-200' : 'text-slate-700',
     title: isDark ? 'text-white' : 'text-slate-900',
     card: isDark 
       ? 'bg-white/[0.04] backdrop-blur-2xl border border-white/10 shadow-[0_8px_32px_0_rgba(0,0,0,0.3)]' 
-      : 'bg-white/70 backdrop-blur-2xl border border-white/40 shadow-[0_8px_32px_0_rgba(31,38,135,0.05)]',
+      : 'bg-white/40 backdrop-blur-2xl border border-white/40 shadow-[0_8px_32px_0_rgba(31,38,135,0.05)]',
     input: isDark 
       ? 'bg-black/20 border border-white/10 text-white placeholder-white/30 focus:bg-black/40 focus:border-green-500/50 focus:ring-1 focus:ring-green-500/50 transition-all' 
-      : 'bg-white/50 border border-white/50 text-slate-800 placeholder-slate-400 focus:bg-white focus:border-green-500/50 focus:ring-1 focus:ring-green-500/50 transition-all',
+      : 'bg-white/40 border border-white/50 text-slate-800 placeholder-slate-500 focus:bg-white/60 focus:border-green-500/50 focus:ring-1 focus:ring-green-500/50 transition-all',
     flipCard: isDark 
       ? 'bg-white/5 border border-white/10 backdrop-blur-md shadow-lg' 
-      : 'bg-white/80 border border-white/50 backdrop-blur-md shadow-lg',
+      : 'bg-white/50 border border-white/50 backdrop-blur-md shadow-lg',
     hover3D: 'transition-all duration-500 hover:-translate-y-1 hover:shadow-[0_15px_40px_-5px_rgba(0,0,0,0.3)] hover:bg-white/[0.06]',
   };
 
@@ -542,13 +540,13 @@ export default function App() {
     return (
       <div className={`min-h-screen ${theme.bg} ${theme.text} font-sans flex items-center justify-center p-4 transition-colors duration-700 relative z-0`}>
         <div className="fixed inset-0 overflow-hidden pointer-events-none z-[-1]">
-          <div className={`absolute top-[-10%] left-[-10%] w-[50vw] h-[50vw] rounded-full blur-[120px] mix-blend-screen transition-all duration-1000 ${isDark ? 'bg-green-500/20' : 'bg-green-400/30'}`}></div>
-          <div className={`absolute bottom-[-10%] right-[-10%] w-[50vw] h-[50vw] rounded-full blur-[120px] mix-blend-screen transition-all duration-1000 ${isDark ? 'bg-blue-600/20' : 'bg-blue-500/30'}`}></div>
+          <div className={`absolute top-[-10%] left-[-10%] w-[50vw] h-[50vw] rounded-full blur-[120px] mix-blend-screen transition-all duration-1000 ${isDark ? 'bg-green-500/20' : 'bg-green-500/20'}`}></div>
+          <div className={`absolute bottom-[-10%] right-[-10%] w-[50vw] h-[50vw] rounded-full blur-[120px] mix-blend-screen transition-all duration-1000 ${isDark ? 'bg-blue-600/20' : 'bg-blue-500/20'}`}></div>
         </div>
         <div className={`${theme.card} p-8 rounded-3xl w-full max-w-md relative overflow-hidden`}>
           <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-green-400 to-blue-500 opacity-80"></div>
           <div className="flex flex-col items-center mb-8 mt-4">
-            <div className={`p-5 rounded-full mb-4 flex items-center justify-center ${isDark ? 'bg-white/5 border border-white/10' : 'bg-white/80 border border-white/50 shadow-sm'}`}>
+            <div className={`p-5 rounded-full mb-4 flex items-center justify-center ${isDark ? 'bg-white/5 border border-white/10' : 'bg-white/50 border border-white/50 shadow-sm'}`}>
               <img src="/Messtex_Icon_Logo_RGB.png" alt="Messtex Logo" className="h-12 w-12 object-contain drop-shadow-md" />
             </div>
             <h2 className={`text-2xl font-black ${theme.title}`}>Projekt Portal</h2>
@@ -587,8 +585,8 @@ export default function App() {
     return (
       <div className={`min-h-screen ${theme.bg} ${theme.text} font-sans selection:bg-green-500/30 transition-colors duration-700 p-4 md:p-8 overflow-x-hidden relative z-0`}>
         <div className="fixed inset-0 overflow-hidden pointer-events-none z-[-1]">
-          <div className={`absolute top-[-10%] left-[-10%] w-[40vw] h-[40vw] rounded-full blur-[120px] mix-blend-screen transition-all duration-1000 ${isDark ? 'bg-green-500/15' : 'bg-green-400/20'}`}></div>
-          <div className={`absolute bottom-[-10%] right-[-10%] w-[40vw] h-[40vw] rounded-full blur-[120px] mix-blend-screen transition-all duration-1000 ${isDark ? 'bg-blue-500/15' : 'bg-blue-400/20'}`}></div>
+          <div className={`absolute top-[-10%] left-[-10%] w-[40vw] h-[40vw] rounded-full blur-[120px] mix-blend-screen transition-all duration-1000 ${isDark ? 'bg-green-500/15' : 'bg-green-500/20'}`}></div>
+          <div className={`absolute bottom-[-10%] right-[-10%] w-[40vw] h-[40vw] rounded-full blur-[120px] mix-blend-screen transition-all duration-1000 ${isDark ? 'bg-blue-500/15' : 'bg-blue-500/20'}`}></div>
         </div>
         <div className={`max-w-7xl mx-auto space-y-8 ${transitionClass}`}>
           <div className={`${theme.card} p-6 md:p-8 rounded-3xl border relative overflow-hidden transition-colors duration-500 flex flex-col md:flex-row md:items-center justify-between gap-4 z-10`}>
@@ -598,16 +596,16 @@ export default function App() {
               Projekt Übersicht
             </h1>
             <div className="flex items-center gap-3">
-              <button onClick={() => setIsDark(!isDark)} className={`p-3 rounded-2xl transition-all duration-300 hover:scale-105 ${isDark ? 'bg-white/5 border border-white/10 text-yellow-400 hover:bg-white/10' : 'bg-white/60 border border-white/40 text-slate-800 hover:bg-white'}`} title="Theme wechseln">
+              <button onClick={() => setIsDark(!isDark)} className={`p-3 rounded-2xl transition-all duration-300 hover:scale-105 ${isDark ? 'bg-white/5 border border-white/10 text-yellow-400 hover:bg-white/10' : 'bg-white/40 border border-white/40 text-slate-800 hover:bg-white/60'}`} title="Theme wechseln">
                 {isDark ? <Sun size={22} /> : <Moon size={22} />}
               </button>
-              <button onClick={handleLogout} className={`p-3 rounded-2xl transition-all duration-300 hover:scale-105 hover:text-red-500 ${isDark ? 'bg-white/5 border border-white/10 text-slate-400 hover:bg-white/10' : 'bg-white/60 border border-white/40 text-slate-600 hover:bg-white'}`} title="Abmelden">
+              <button onClick={handleLogout} className={`p-3 rounded-2xl transition-all duration-300 hover:scale-105 hover:text-red-500 ${isDark ? 'bg-white/5 border border-white/10 text-slate-400 hover:bg-white/10' : 'bg-white/40 border border-white/40 text-slate-600 hover:bg-white/60'}`} title="Abmelden">
                 <LogOut size={22} />
               </button>
             </div>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            <div onClick={() => navigateTo('new')} className={`${theme.card} p-8 rounded-3xl border border-dashed flex flex-col items-center justify-center cursor-pointer transition-all duration-300 hover:scale-105 group min-h-[220px] ${isDark ? 'border-white/20 hover:border-green-500 hover:bg-white/[0.06]' : 'border-slate-400 hover:border-green-500 hover:bg-white/80'}`}>
+            <div onClick={() => navigateTo('new')} className={`${theme.card} p-8 rounded-3xl border border-dashed flex flex-col items-center justify-center cursor-pointer transition-all duration-300 hover:scale-105 group min-h-[220px] ${isDark ? 'border-white/20 hover:border-green-500 hover:bg-white/[0.06]' : 'border-slate-400 hover:border-green-500 hover:bg-white/50'}`}>
                <Plus size={56} className="text-slate-400/50 group-hover:text-green-500 transition-colors mb-4 drop-shadow-md" />
                <span className="font-bold text-lg text-slate-500 group-hover:text-green-500 transition-colors uppercase tracking-wider">Neues Projekt</span>
             </div>
@@ -653,7 +651,7 @@ export default function App() {
                          <span>Fortschritt</span>
                          <span className={p.progress_percentage === 100 ? 'text-green-500' : ''}>{p.progress_percentage || 0}%</span>
                        </div>
-                       <div className={`w-full h-1.5 rounded-full overflow-hidden ${isDark ? 'bg-black/50 border border-white/5' : 'bg-slate-200 shadow-inner'}`}>
+                       <div className={`w-full h-1.5 rounded-full overflow-hidden ${isDark ? 'bg-black/50 border border-white/5' : 'bg-slate-300 shadow-inner'}`}>
                          <div className={`h-full transition-all duration-1000 ${p.progress_percentage === 100 ? 'bg-green-500 shadow-[0_0_10px_rgba(34,197,94,0.5)]' : 'bg-blue-500 shadow-[0_0_10px_rgba(59,130,246,0.5)]'}`} style={{ width: `${p.progress_percentage || 0}%` }}></div>
                        </div>
                     </div>
@@ -672,8 +670,8 @@ export default function App() {
   return (
     <div className={`min-h-screen ${theme.bg} ${theme.text} font-sans selection:bg-green-500/30 transition-colors duration-700 relative overflow-x-hidden z-0`}>
       <div className="fixed inset-0 overflow-hidden pointer-events-none z-[-1]">
-        <div className={`absolute top-[-10%] left-[-10%] w-[40vw] h-[40vw] rounded-full blur-[120px] mix-blend-screen transition-all duration-1000 ${isDark ? 'bg-green-500/15' : 'bg-green-400/20'}`}></div>
-        <div className={`absolute bottom-[-10%] right-[-10%] w-[40vw] h-[40vw] rounded-full blur-[120px] mix-blend-screen transition-all duration-1000 ${isDark ? 'bg-blue-500/15' : 'bg-blue-400/20'}`}></div>
+        <div className={`absolute top-[-10%] left-[-10%] w-[40vw] h-[40vw] rounded-full blur-[120px] mix-blend-screen transition-all duration-1000 ${isDark ? 'bg-green-500/15' : 'bg-green-500/20'}`}></div>
+        <div className={`absolute bottom-[-10%] right-[-10%] w-[40vw] h-[40vw] rounded-full blur-[120px] mix-blend-screen transition-all duration-1000 ${isDark ? 'bg-blue-500/15' : 'bg-blue-500/20'}`}></div>
       </div>
 
       {previewFile && (
@@ -700,22 +698,22 @@ export default function App() {
 
       {isSidebarOpen && <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-40 transition-opacity duration-300" onClick={() => setIsSidebarOpen(false)}></div>}
 
-      <div className={`fixed top-0 left-0 h-full w-80 z-50 transform transition-transform duration-500 ease-[cubic-bezier(0.4,0,0.2,1)] ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} ${isDark ? 'bg-black/60 backdrop-blur-3xl border-r border-white/10 shadow-[20px_0_40px_rgba(0,0,0,0.5)]' : 'bg-white/80 backdrop-blur-3xl border-r border-white/40 shadow-[20px_0_40px_rgba(0,0,0,0.1)]'}`}>
+      <div className={`fixed top-0 left-0 h-full w-80 z-50 transform transition-transform duration-500 ease-[cubic-bezier(0.4,0,0.2,1)] ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} ${isDark ? 'bg-black/60 backdrop-blur-3xl border-r border-white/10 shadow-[20px_0_40px_rgba(0,0,0,0.5)]' : 'bg-slate-200/90 backdrop-blur-3xl border-r border-white/40 shadow-[20px_0_40px_rgba(0,0,0,0.05)]'}`}>
         <div className="p-6 flex justify-between items-center border-b border-white/10">
           <h2 className={`text-xl font-bold flex items-center gap-3 ${theme.title}`}>
             <img src="/Messtex_Icon_Logo_RGB.png" alt="Logo" className="h-6 w-6 object-contain" /> Projekte
           </h2>
-          <button onClick={() => setIsSidebarOpen(false)} className={`p-2 rounded-full transition-colors hover:scale-110 ${isDark ? 'hover:bg-white/10 text-slate-400' : 'hover:bg-black/5 text-slate-600'}`}><X size={24} /></button>
+          <button onClick={() => setIsSidebarOpen(false)} className={`p-2 rounded-full transition-colors hover:scale-110 ${isDark ? 'hover:bg-white/10 text-slate-400' : 'hover:bg-white/40 text-slate-600'}`}><X size={24} /></button>
         </div>
         <div className="p-4 space-y-4 overflow-y-auto h-[calc(100vh-80px)] custom-scrollbar">
-           <button onClick={() => navigateTo('home')} className={`w-full py-3 rounded-xl border font-bold flex items-center justify-center gap-2 transition-all hover:scale-105 shadow-sm backdrop-blur-md ${isDark ? 'border-white/10 bg-white/5 hover:bg-white/10 text-white' : 'border-slate-200 bg-white/50 hover:bg-white text-slate-800'}`}>
+           <button onClick={() => navigateTo('home')} className={`w-full py-3 rounded-xl border font-bold flex items-center justify-center gap-2 transition-all hover:scale-105 shadow-sm backdrop-blur-md ${isDark ? 'border-white/10 bg-white/5 hover:bg-white/10 text-white' : 'border-white/40 bg-white/30 hover:border-slate-400 hover:bg-white/50 text-slate-800'}`}>
              <Home size={18} /> Zurück zur Übersicht
            </button>
            <div className="my-4 border-b border-white/10"></div>
-           <button onClick={() => navigateTo('new')} className={`w-full py-3 rounded-xl border border-dashed font-bold flex items-center justify-center gap-2 transition-all hover:scale-105 ${isDark ? 'border-white/20 text-slate-300 hover:border-green-500 hover:text-green-400 hover:bg-white/5' : 'border-slate-400 text-slate-600 hover:border-green-600 hover:text-green-600 hover:bg-white/50'}`}><Plus size={18} /> Neues Projekt</button>
+           <button onClick={() => navigateTo('new')} className={`w-full py-3 rounded-xl border border-dashed font-bold flex items-center justify-center gap-2 transition-all hover:scale-105 ${isDark ? 'border-white/20 text-slate-300 hover:border-green-500 hover:text-green-400 hover:bg-white/5' : 'border-slate-400 text-slate-600 hover:border-green-600 hover:text-green-600 hover:bg-white/40'}`}><Plus size={18} /> Neues Projekt</button>
            {projectsList.length === 0 && <p className="text-center text-xs opacity-50 mt-10">Noch keine Projekte in der Datenbank.</p>}
            {projectsList.map(p => (
-              <div key={p.id} onClick={() => navigateTo('project', p.id)} className={`p-4 rounded-xl cursor-pointer transition-all hover:scale-105 border relative group flex flex-col justify-between backdrop-blur-md ${currentProjectId === p.id ? 'border-blue-500 bg-blue-500/10 shadow-[0_0_15px_rgba(59,130,246,0.2)]' : isDark ? 'border-white/5 bg-white/5 hover:border-white/20 hover:bg-white/10' : 'border-white/40 bg-white/50 hover:border-slate-300 hover:bg-white'}`}>
+              <div key={p.id} onClick={() => navigateTo('project', p.id)} className={`p-4 rounded-xl cursor-pointer transition-all hover:scale-105 border relative group flex flex-col justify-between backdrop-blur-md ${currentProjectId === p.id ? 'border-blue-500 bg-blue-500/10 shadow-[0_0_15px_rgba(59,130,246,0.2)]' : isDark ? 'border-white/5 bg-white/5 hover:border-white/20 hover:bg-white/10' : 'border-white/40 bg-white/30 hover:border-slate-400 hover:bg-white/50'}`}>
                  <div className="flex justify-between items-start mb-2">
                    <h3 className={`font-bold truncate pr-6 ${theme.title}`}>{p.company_name}</h3>
                    <button onClick={(e) => deleteProject(e, p.id)} className="absolute top-3 right-3 text-slate-500 hover:text-red-400 hover:scale-110 transition-all opacity-0 group-hover:opacity-100" title="Projekt löschen"><Trash2 size={16} /></button>
@@ -723,7 +721,7 @@ export default function App() {
                  {p.is_ready_to_start ? (
                     <div className="text-xs font-bold text-green-500 mt-2">Startklar 🚀</div>
                  ) : (
-                    <div className="text-xs font-bold opacity-70 mt-2 text-orange-400">In Bearbeitung</div>
+                    <div className="text-xs font-bold opacity-70 mt-2 text-orange-500">In Bearbeitung</div>
                  )}
               </div>
            ))}
@@ -739,8 +737,8 @@ export default function App() {
             
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
               <div className="flex items-center gap-4 w-full">
-                <button onClick={() => navigateTo('home')} className={`p-3 rounded-2xl flex-shrink-0 transition-all duration-300 hover:scale-105 ${isDark ? 'bg-white/5 text-white border border-white/10 hover:bg-white/10' : 'bg-white/60 text-slate-800 border border-white/40 hover:bg-white'}`} title="Zurück zur Übersicht"><Home size={22} /></button>
-                <button onClick={() => setIsSidebarOpen(true)} className={`p-3 rounded-2xl flex-shrink-0 transition-all duration-300 hover:scale-105 ${isDark ? 'bg-white/5 text-white border border-white/10 hover:bg-white/10' : 'bg-white/60 text-slate-800 border border-white/40 hover:bg-white'}`} title="Projekte Menü"><Menu size={22} /></button>
+                <button onClick={() => navigateTo('home')} className={`p-3 rounded-2xl flex-shrink-0 transition-all duration-300 hover:scale-105 ${isDark ? 'bg-white/5 text-white border border-white/10 hover:bg-white/10' : 'bg-white/40 text-slate-800 border border-white/40 hover:bg-white/60'}`} title="Zurück zur Übersicht"><Home size={22} /></button>
+                <button onClick={() => setIsSidebarOpen(true)} className={`p-3 rounded-2xl flex-shrink-0 transition-all duration-300 hover:scale-105 ${isDark ? 'bg-white/5 text-white border border-white/10 hover:bg-white/10' : 'bg-white/40 text-slate-800 border border-white/40 hover:bg-white/60'}`} title="Projekte Menü"><Menu size={22} /></button>
                 <input type="text" value={companyName} onChange={(e) => setCompanyName(e.target.value)} className={`text-4xl md:text-5xl lg:text-6xl font-extrabold bg-transparent border-none outline-none w-full truncate placeholder-slate-500/50 ${isDark ? 'text-white' : 'text-slate-800'}`} placeholder="Firmenname..." />
               </div>
               
@@ -750,28 +748,28 @@ export default function App() {
                    <button 
                       onClick={generateCustomerPDF} 
                       disabled={isGeneratingPdf}
-                      className={`flex items-center gap-2 px-4 py-2.5 rounded-full font-bold text-sm transition-all duration-300 ${isDark ? 'bg-blue-600/20 text-blue-400 hover:bg-blue-600/30 border border-blue-500/30' : 'bg-blue-50 text-blue-600 hover:bg-blue-100 border border-blue-200'} shadow-sm backdrop-blur-md disabled:opacity-50`}
+                      className={`flex items-center gap-2 px-4 py-2.5 rounded-full font-bold text-sm transition-all duration-300 ${isDark ? 'bg-blue-600/20 text-blue-400 hover:bg-blue-600/30 border border-blue-500/30' : 'bg-blue-500/10 text-blue-700 hover:bg-blue-500/20 border border-blue-400/30'} shadow-sm backdrop-blur-md disabled:opacity-50`}
                       title="Kunden-Fragebogen herunterladen"
                    >
                      {isGeneratingPdf ? <RefreshCw size={16} className="animate-spin" /> : <FileDown size={16} />}
                      <span className="hidden sm:inline">{isGeneratingPdf ? 'Erstelle PDF...' : 'Kunden-Fragebogen (PDF)'}</span>
                    </button>
 
-                   <button onClick={() => setIsDark(!isDark)} className={`p-2.5 rounded-full transition-all duration-300 hover:scale-110 ${isDark ? 'bg-white/5 border border-white/10 text-yellow-400 hover:bg-white/10' : 'bg-white/60 border border-white/40 text-slate-800 hover:bg-white'}`} title="Theme wechseln">
+                   <button onClick={() => setIsDark(!isDark)} className={`p-2.5 rounded-full transition-all duration-300 hover:scale-110 ${isDark ? 'bg-white/5 border border-white/10 text-yellow-400 hover:bg-white/10' : 'bg-white/40 border border-white/40 text-slate-800 hover:bg-white/60'}`} title="Theme wechseln">
                      {isDark ? <Sun size={20} /> : <Moon size={20} />}
                    </button>
-                   <button onClick={handleLogout} className={`p-2.5 rounded-full transition-all duration-300 hover:scale-110 hover:text-red-500 ${isDark ? 'bg-white/5 border border-white/10 text-slate-400 hover:bg-white/10' : 'bg-white/60 border border-white/40 text-slate-600 hover:bg-white'}`} title="Abmelden">
+                   <button onClick={handleLogout} className={`p-2.5 rounded-full transition-all duration-300 hover:scale-110 hover:text-red-500 ${isDark ? 'bg-white/5 border border-white/10 text-slate-400 hover:bg-white/10' : 'bg-white/40 border border-white/40 text-slate-600 hover:bg-white/60'}`} title="Abmelden">
                      <LogOut size={20} />
                    </button>
                  </div>
                  
-                 <div className={`flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest px-3 py-1.5 rounded-full border backdrop-blur-md ${isDark ? 'bg-black/30 border-white/10' : 'bg-white/60 border-slate-200'}`}>
+                 <div className={`flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest px-3 py-1.5 rounded-full border backdrop-blur-md ${isDark ? 'bg-black/30 border-white/10' : 'bg-white/40 border-slate-300 text-slate-700'}`}>
                     {syncStatus === 'saving' ? (
                       <><RefreshCw size={12} className="animate-spin text-blue-400" /> <span className="opacity-70">Cloud-Sync...</span></>
                     ) : syncStatus === 'error' ? (
-                      <><AlertCircle size={12} className="text-red-400" /> <span className="opacity-70 text-red-400">Speicherfehler</span></>
+                      <><AlertCircle size={12} className="text-red-500" /> <span className="opacity-70 text-red-500">Speicherfehler</span></>
                     ) : (
-                      <><CheckCircle2 size={12} className="text-green-500" /> <span className="opacity-70 text-green-500">Gespeichert</span></>
+                      <><CheckCircle2 size={12} className="text-green-600" /> <span className="opacity-70 text-green-600">Gespeichert</span></>
                     )}
                  </div>
               </div>
@@ -784,7 +782,7 @@ export default function App() {
                </div>
             ) : (
                <div className="flex items-center gap-2 uppercase tracking-widest text-sm font-bold opacity-70 mt-4 mb-2">
-                 <span className="text-green-500">▶</span> Projekt Onboarding & Stammdaten
+                 <span className="text-green-600">▶</span> Projekt Onboarding & Stammdaten
                </div>
             )}
           </div>
@@ -797,7 +795,7 @@ export default function App() {
               
               {/* KUNDENSTAMMDATEN */}
               <div className={`${theme.card} rounded-3xl p-6 md:p-8 ${theme.hover3D}`}>
-                <h2 className={`${theme.title} text-xl font-bold mb-6 flex items-center gap-2 border-b ${isDark ? 'border-white/10' : 'border-slate-200'} pb-4`}>
+                <h2 className={`${theme.title} text-xl font-bold mb-6 flex items-center gap-2 border-b ${isDark ? 'border-white/10' : 'border-slate-300/50'} pb-4`}>
                   <Building className="text-blue-500" /> Kundenstammdaten
                 </h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
@@ -822,10 +820,10 @@ export default function App() {
                 <div className="mt-8">
                   <h3 className="text-sm font-bold uppercase tracking-wider mb-4 flex items-center justify-between opacity-70">
                     <span>Ansprechpartner</span>
-                    {!hasValidContact && <span className="text-red-400 text-xs flex items-center gap-1"><AlertCircle size={14}/> Pflichtfeld</span>}
+                    {!hasValidContact && <span className="text-red-500 text-xs flex items-center gap-1"><AlertCircle size={14}/> Pflichtfeld</span>}
                   </h3>
                   {contacts.map((contact, index) => (
-                    <div key={contact.id} className={`${isDark ? 'bg-black/20 border-white/5' : 'bg-white/50 border-white/40'} border p-5 rounded-2xl mb-4 relative group transition-colors`}>
+                    <div key={contact.id} className={`${isDark ? 'bg-black/20 border-white/5' : 'bg-white/30 border-white/40'} border p-5 rounded-2xl mb-4 relative group transition-colors`}>
                       {index > 0 && (
                         <button onClick={() => removeContact(contact.id)} className="absolute -top-3 -right-3 bg-red-500/90 backdrop-blur-md text-white p-2 rounded-full shadow-lg opacity-0 group-hover:opacity-100 hover:scale-110 transition-all border border-red-400/50">
                           <Trash2 size={16} />
@@ -851,7 +849,7 @@ export default function App() {
                       </div>
                     </div>
                   ))}
-                  <button onClick={handleAddContact} className="text-blue-500 font-bold flex items-center gap-1 hover:text-blue-400 transition-colors mt-2 text-sm">
+                  <button onClick={handleAddContact} className="text-blue-600 font-bold flex items-center gap-1 hover:text-blue-500 transition-colors mt-2 text-sm">
                     <Plus size={16} /> Weiteren Ansprechpartner hinzufügen
                   </button>
                 </div>
@@ -859,7 +857,7 @@ export default function App() {
 
               {/* AUFTRAGSÜBERSICHT */}
               <div className={`${theme.card} rounded-3xl p-6 md:p-8 ${theme.hover3D}`}>
-                <h2 className={`${theme.title} text-xl font-bold mb-6 flex items-center gap-2 border-b ${isDark ? 'border-white/10' : 'border-slate-200'} pb-4`}>
+                <h2 className={`${theme.title} text-xl font-bold mb-6 flex items-center gap-2 border-b ${isDark ? 'border-white/10' : 'border-slate-300/50'} pb-4`}>
                   <Wrench className="text-orange-500" /> Auftragsübersicht
                 </h2>
                 <div className="space-y-6">
@@ -868,16 +866,16 @@ export default function App() {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
                       <label className="block text-xs uppercase tracking-wider mb-2 font-bold opacity-70 pl-1">Software</label>
-                      <div className={`flex gap-2 p-1.5 rounded-xl ${isDark ? 'bg-black/30 border border-white/5' : 'bg-slate-200/50 border border-slate-300/50'}`}>
-                        <button onClick={() => setSoftware('komtex')} className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all duration-300 ${software === 'komtex' ? 'bg-orange-500/90 text-white shadow-md scale-[1.02] border border-orange-400/50' : 'opacity-60 hover:opacity-100 hover:bg-white/5'}`}>Komtex</button>
-                        <button onClick={() => setSoftware('fremd')} className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all duration-300 ${software === 'fremd' ? 'bg-blue-600/90 text-white shadow-md scale-[1.02] border border-blue-500/50' : 'opacity-60 hover:opacity-100 hover:bg-white/5'}`}>Fremd</button>
+                      <div className={`flex gap-2 p-1.5 rounded-xl ${isDark ? 'bg-black/30 border border-white/5' : 'bg-slate-300/40 border border-slate-300/50'}`}>
+                        <button onClick={() => setSoftware('komtex')} className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all duration-300 ${software === 'komtex' ? 'bg-orange-500/90 text-white shadow-md scale-[1.02] border border-orange-400/50' : 'opacity-60 hover:opacity-100 hover:bg-white/10'}`}>Komtex</button>
+                        <button onClick={() => setSoftware('fremd')} className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all duration-300 ${software === 'fremd' ? 'bg-blue-600/90 text-white shadow-md scale-[1.02] border border-blue-500/50' : 'opacity-60 hover:opacity-100 hover:bg-white/10'}`}>Fremd</button>
                       </div>
                     </div>
                     <div>
                        <label className="block text-xs uppercase tracking-wider mb-2 font-bold opacity-70 pl-1">Reparaturen</label>
-                       <div className={`flex gap-2 p-1.5 rounded-xl ${isDark ? 'bg-black/30 border border-white/5' : 'bg-slate-200/50 border border-slate-300/50'}`}>
-                        <button onClick={() => setRepairsApproved(true)} className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all duration-300 ${repairsApproved === true ? 'bg-green-600/90 text-white shadow-md scale-[1.02] border border-green-500/50' : 'opacity-60 hover:opacity-100 hover:bg-white/5'}`}>Genehmigt</button>
-                        <button onClick={() => setRepairsApproved(false)} className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all duration-300 ${repairsApproved === false ? 'bg-red-600/90 text-white shadow-md scale-[1.02] border border-red-500/50' : 'opacity-60 hover:opacity-100 hover:bg-white/5'}`}>Abgelehnt</button>
+                       <div className={`flex gap-2 p-1.5 rounded-xl ${isDark ? 'bg-black/30 border border-white/5' : 'bg-slate-300/40 border border-slate-300/50'}`}>
+                        <button onClick={() => setRepairsApproved(true)} className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all duration-300 ${repairsApproved === true ? 'bg-green-600/90 text-white shadow-md scale-[1.02] border border-green-500/50' : 'opacity-60 hover:opacity-100 hover:bg-white/10'}`}>Genehmigt</button>
+                        <button onClick={() => setRepairsApproved(false)} className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all duration-300 ${repairsApproved === false ? 'bg-red-600/90 text-white shadow-md scale-[1.02] border border-red-500/50' : 'opacity-60 hover:opacity-100 hover:bg-white/10'}`}>Abgelehnt</button>
                       </div>
                     </div>
                   </div>
@@ -899,16 +897,16 @@ export default function App() {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
                     <div>
                       <label className="block text-xs uppercase tracking-wider mb-2 font-bold opacity-70 pl-1">Lagerung Material</label>
-                      <div className={`flex gap-2 p-1.5 rounded-xl ${isDark ? 'bg-black/30 border border-white/5' : 'bg-slate-200/50 border border-slate-300/50'}`}>
-                        <button onClick={() => setOrderDetails({...orderDetails, storageLocation: 'messtex'})} className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all duration-300 ${orderDetails.storageLocation === 'messtex' ? 'bg-purple-600/90 text-white shadow-md scale-[1.02] border border-purple-500/50' : 'opacity-60 hover:opacity-100 hover:bg-white/5'}`}>Messtex</button>
-                        <button onClick={() => setOrderDetails({...orderDetails, storageLocation: 'auftraggeber'})} className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all duration-300 ${orderDetails.storageLocation === 'auftraggeber' ? 'bg-indigo-500/90 text-white shadow-md scale-[1.02] border border-indigo-400/50' : 'opacity-60 hover:opacity-100 hover:bg-white/5'}`}>Kunde</button>
+                      <div className={`flex gap-2 p-1.5 rounded-xl ${isDark ? 'bg-black/30 border border-white/5' : 'bg-slate-300/40 border border-slate-300/50'}`}>
+                        <button onClick={() => setOrderDetails({...orderDetails, storageLocation: 'messtex'})} className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all duration-300 ${orderDetails.storageLocation === 'messtex' ? 'bg-purple-600/90 text-white shadow-md scale-[1.02] border border-purple-500/50' : 'opacity-60 hover:opacity-100 hover:bg-white/10'}`}>Messtex</button>
+                        <button onClick={() => setOrderDetails({...orderDetails, storageLocation: 'auftraggeber'})} className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all duration-300 ${orderDetails.storageLocation === 'auftraggeber' ? 'bg-indigo-500/90 text-white shadow-md scale-[1.02] border border-indigo-400/50' : 'opacity-60 hover:opacity-100 hover:bg-white/10'}`}>Kunde</button>
                       </div>
                     </div>
                     <div>
                        <label className="block text-xs uppercase tracking-wider mb-2 font-bold opacity-70 pl-1">Altzähler</label>
-                       <div className={`flex gap-2 p-1.5 rounded-xl ${isDark ? 'bg-black/30 border border-white/5' : 'bg-slate-200/50 border border-slate-300/50'}`}>
-                        <button onClick={() => setOrderDetails({...orderDetails, oldMeterDisposal: 'entsorgen'})} className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all duration-300 ${orderDetails.oldMeterDisposal === 'entsorgen' ? 'bg-red-500/90 text-white shadow-md scale-[1.02] border border-red-400/50' : 'opacity-60 hover:opacity-100 hover:bg-white/5'}`}>Entsorgen</button>
-                        <button onClick={() => setOrderDetails({...orderDetails, oldMeterDisposal: 'abgeben'})} className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all duration-300 ${orderDetails.oldMeterDisposal === 'abgeben' ? 'bg-blue-500/90 text-white shadow-md scale-[1.02] border border-blue-400/50' : 'opacity-60 hover:opacity-100 hover:bg-white/5'}`}>Abgeben</button>
+                       <div className={`flex gap-2 p-1.5 rounded-xl ${isDark ? 'bg-black/30 border border-white/5' : 'bg-slate-300/40 border border-slate-300/50'}`}>
+                        <button onClick={() => setOrderDetails({...orderDetails, oldMeterDisposal: 'entsorgen'})} className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all duration-300 ${orderDetails.oldMeterDisposal === 'entsorgen' ? 'bg-red-500/90 text-white shadow-md scale-[1.02] border border-red-400/50' : 'opacity-60 hover:opacity-100 hover:bg-white/10'}`}>Entsorgen</button>
+                        <button onClick={() => setOrderDetails({...orderDetails, oldMeterDisposal: 'abgeben'})} className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all duration-300 ${orderDetails.oldMeterDisposal === 'abgeben' ? 'bg-blue-500/90 text-white shadow-md scale-[1.02] border border-blue-400/50' : 'opacity-60 hover:opacity-100 hover:bg-white/10'}`}>Abgeben</button>
                       </div>
                     </div>
                   </div>
@@ -920,7 +918,7 @@ export default function App() {
                   </div>
 
                   {/* ZEILE 4: Zählerinformationen */}
-                  <div className={`p-5 rounded-2xl border ${isDark ? 'bg-black/20 border-white/5' : 'bg-white/50 border-white/40'}`}>
+                  <div className={`p-5 rounded-2xl border ${isDark ? 'bg-black/20 border-white/5' : 'bg-white/30 border-white/40'}`}>
                     <h3 className="text-sm font-bold mb-4 opacity-80 pl-1">Zählerinformationen</h3>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                       <input type="text" placeholder="Neu: Hersteller" value={meterInfo.newManufacturer} onChange={e => setMeterInfo({...meterInfo, newManufacturer: e.target.value})} className={`w-full ${theme.input} rounded-xl p-3 text-sm outline-none`} />
@@ -933,7 +931,7 @@ export default function App() {
 
               {/* LEISTUNGSVERZEICHNIS (LV) */}
               <div className={`${theme.card} rounded-3xl p-6 md:p-8 ${theme.hover3D}`}>
-                <h2 className={`${theme.title} text-xl font-bold mb-6 flex items-center justify-between border-b ${isDark ? 'border-white/10' : 'border-slate-200'} pb-4`}>
+                <h2 className={`${theme.title} text-xl font-bold mb-6 flex items-center justify-between border-b ${isDark ? 'border-white/10' : 'border-slate-300/50'} pb-4`}>
                   <div className="flex items-center gap-2"><Receipt className="text-yellow-500" /> Leistungsverzeichnis</div>
                 </h2>
                 <div className="space-y-3">
@@ -949,10 +947,10 @@ export default function App() {
                       <input type="text" value={item.pos} readOnly className={`w-16 ${theme.input} rounded-xl p-2.5 text-sm outline-none text-center font-bold opacity-70 cursor-default`} />
                       <input type="text" placeholder="Leistungsbeschreibung..." value={item.desc} onChange={e => handleLvChange(item.id, 'desc', e.target.value)} className={`flex-1 ${theme.input} rounded-xl p-2.5 text-sm outline-none`} />
                       <input type="text" placeholder="z.B. 100,00" value={item.price} onChange={e => handleLvChange(item.id, 'price', e.target.value)} onBlur={(e) => formatPrice(item.id, item.price, e)} onKeyDown={(e) => formatPrice(item.id, item.price, e)} className={`w-24 ${theme.input} rounded-xl p-2.5 text-sm outline-none text-right`} />
-                      <button onClick={() => removeLvItem(item.id)} className="w-8 h-8 flex items-center justify-center text-red-400 hover:bg-red-500/20 rounded-lg transition-colors opacity-0 group-hover:opacity-100"><Trash2 size={16}/></button>
+                      <button onClick={() => removeLvItem(item.id)} className="w-8 h-8 flex items-center justify-center text-red-500 hover:bg-red-500/20 rounded-lg transition-colors opacity-0 group-hover:opacity-100"><Trash2 size={16}/></button>
                     </div>
                   ))}
-                  <button onClick={addLvItem} className="text-yellow-500 font-bold flex items-center gap-1 hover:text-yellow-400 transition-colors mt-4 text-sm pl-1"><Plus size={16} /> Weitere Position hinzufügen</button>
+                  <button onClick={addLvItem} className="text-yellow-500 font-bold flex items-center gap-1 hover:text-yellow-600 transition-colors mt-4 text-sm pl-1"><Plus size={16} /> Weitere Position hinzufügen</button>
                 </div>
               </div>
 
@@ -963,9 +961,9 @@ export default function App() {
 
               {/* KICK-OFF TERMIN */}
               <div className={`${theme.card} rounded-3xl p-6 md:p-8 ${theme.hover3D} relative`}>
-                <h2 className={`${theme.title} text-xl font-bold mb-6 flex items-center justify-between border-b ${isDark ? 'border-white/10' : 'border-slate-200'} pb-4`}>
-                  <span className="flex items-center gap-2"><CalendarIcon className="text-purple-400" /> Start</span>
-                  {kickoffDate === '' && <span className="text-red-400 text-xs flex items-center gap-1"><AlertCircle size={14}/> Pflicht</span>}
+                <h2 className={`${theme.title} text-xl font-bold mb-6 flex items-center justify-between border-b ${isDark ? 'border-white/10' : 'border-slate-300/50'} pb-4`}>
+                  <span className="flex items-center gap-2"><CalendarIcon className="text-purple-500" /> Start</span>
+                  {kickoffDate === '' && <span className="text-red-500 text-xs flex items-center gap-1"><AlertCircle size={14}/> Pflicht</span>}
                 </h2>
                 <div className="relative group hover:scale-[1.02] transition-transform duration-300 cursor-pointer">
                   {kickoffDate && (
@@ -990,24 +988,24 @@ export default function App() {
                     className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-50 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:inset-0 [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:cursor-pointer"
                     onChange={(e) => setKickoffDate(e.target.value)}
                   />
-                  <p className="text-center mt-6 text-sm font-bold opacity-50 group-hover:text-purple-400 transition-colors pointer-events-none">Klicken zum Datum wählen</p>
+                  <p className="text-center mt-6 text-sm font-bold opacity-50 group-hover:text-purple-500 transition-colors pointer-events-none">Klicken zum Datum wählen</p>
                 </div>
               </div>
 
               {/* STATISCHE CHECKLISTE MIT AUSWAHL-CHIPS & MINI-BADGES */}
               <div className={`${theme.card} rounded-3xl p-6 md:p-8 ${theme.hover3D}`}>
-                 <h2 className={`${theme.title} text-xl font-bold mb-6 flex items-center gap-2 border-b ${isDark ? 'border-white/10' : 'border-slate-200'} pb-4`}>
+                 <h2 className={`${theme.title} text-xl font-bold mb-6 flex items-center gap-2 border-b ${isDark ? 'border-white/10' : 'border-slate-300/50'} pb-4`}>
                   <FileText className="text-green-500" /> Checkliste
                 </h2>
                 <div className="space-y-4">
                   
                   {/* 1. Parkausweise */}
-                  <div className={`border rounded-2xl overflow-hidden transition-all duration-300 backdrop-blur-md ${tasks.parkausweise ? 'border-green-500/50 bg-green-500/10' : isDark ? 'border-white/10 bg-white/5' : 'border-slate-200 bg-white/40'}`}>
-                    <div className="p-4 flex items-center justify-between cursor-pointer hover:bg-white/5" onClick={() => setExpandedCard(expandedCard === 'park' ? null : 'park')}>
+                  <div className={`border rounded-2xl overflow-hidden transition-all duration-300 backdrop-blur-md ${tasks.parkausweise ? 'border-green-500/50 bg-green-500/10' : isDark ? 'border-white/10 bg-white/5' : 'border-white/40 bg-white/30'}`}>
+                    <div className="p-4 flex items-center justify-between cursor-pointer hover:bg-white/10" onClick={() => setExpandedCard(expandedCard === 'park' ? null : 'park')}>
                       <div className="flex flex-col sm:flex-row sm:items-center gap-3 w-full">
                         
                         <div className="flex items-center gap-3 cursor-pointer z-10 p-1 -ml-1 rounded-lg hover:bg-black/10" onClick={(e) => handleToggleTask('parkausweise', e)} title="Klicken, wenn physische Ausweise eingetroffen sind">
-                           {tasks.parkausweise ? <CheckCircle2 className="text-green-500 shadow-sm rounded-full shrink-0" /> : <Circle className="text-slate-500 shrink-0 hover:text-green-400 transition-colors" />}
+                           {tasks.parkausweise ? <CheckCircle2 className="text-green-500 shadow-sm rounded-full shrink-0" /> : <Circle className="text-slate-500 shrink-0 hover:text-green-500 transition-colors" />}
                            <span className="font-bold">Parkausweise erhalten</span>
                         </div>
 
@@ -1015,12 +1013,12 @@ export default function App() {
                         {vehicles.length > 0 && (
                           <div className="flex flex-wrap gap-1 sm:ml-auto pr-2">
                             {vehicles.slice(0, 3).map(v => (
-                              <span key={v} className={`flex items-center gap-1 text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full border ${isDark ? 'bg-black/30 border-white/10 text-slate-300' : 'bg-white/60 border-slate-200 text-slate-600'}`}>
+                              <span key={v} className={`flex items-center gap-1 text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full border ${isDark ? 'bg-black/30 border-white/10 text-slate-300' : 'bg-white/60 border-slate-300 text-slate-700'}`}>
                                 <Car size={10} /> {v}
                               </span>
                             ))}
                             {vehicles.length > 3 && (
-                              <span className={`text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full border ${isDark ? 'bg-black/30 border-white/10 text-slate-300' : 'bg-white/60 border-slate-200 text-slate-600'}`}>+{vehicles.length - 3}</span>
+                              <span className={`text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full border ${isDark ? 'bg-black/30 border-white/10 text-slate-300' : 'bg-white/60 border-slate-300 text-slate-700'}`}>+{vehicles.length - 3}</span>
                             )}
                           </div>
                         )}
@@ -1030,9 +1028,9 @@ export default function App() {
                     </div>
                     
                     {expandedCard === 'park' && (
-                      <div className={`p-4 border-t ${isDark ? 'border-white/10 bg-black/20' : 'border-slate-200 bg-slate-50/50'}`}>
+                      <div className={`p-4 border-t ${isDark ? 'border-white/10 bg-black/20' : 'border-slate-300/50 bg-slate-200/50'}`}>
                         <div className="mb-4">
-                          <p className="text-[10px] font-bold uppercase tracking-wider opacity-50 mb-3 pl-1">Schnellauswahl (Klicken für PDF)</p>
+                          <p className="text-[10px] font-bold uppercase tracking-wider opacity-60 mb-3 pl-1">Schnellauswahl (Klicken für PDF)</p>
                           <div className="flex flex-wrap gap-2">
                             {Array.from(new Set([...defaultVehicles, ...vehicles])).map(v => {
                                const isSelected = vehicles.includes(v);
@@ -1040,7 +1038,7 @@ export default function App() {
                                  <button 
                                    key={v} 
                                    onClick={() => toggleVehicle(v)}
-                                   className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-mono font-bold transition-all duration-300 border ${isSelected ? (isDark ? 'bg-orange-500/90 text-white border-orange-400/50 shadow-[0_0_10px_rgba(249,115,22,0.3)]' : 'bg-orange-500 text-white border-orange-600 shadow-md') : (isDark ? 'bg-black/30 border-white/10 text-slate-300 hover:bg-white/10' : 'bg-white/60 border-slate-200 text-slate-600 hover:bg-white')}`}
+                                   className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-mono font-bold transition-all duration-300 border ${isSelected ? (isDark ? 'bg-orange-500/90 text-white border-orange-400/50 shadow-[0_0_10px_rgba(249,115,22,0.3)]' : 'bg-orange-500 text-white border-orange-600 shadow-md') : (isDark ? 'bg-black/30 border-white/10 text-slate-300 hover:bg-white/10' : 'bg-white/60 border-slate-300 text-slate-700 hover:bg-white')}`}
                                  >
                                    <Car size={12} className={isSelected ? "text-white" : "opacity-50"} /> {v}
                                  </button>
@@ -1054,19 +1052,19 @@ export default function App() {
                             <Car size={16} className="absolute left-3 top-1/2 transform -translate-y-1/2 opacity-50" />
                             <input type="text" placeholder="Neues Kennzeichen (z.B. M-AB 123)" value={newVehicle} onChange={e => setNewVehicle(e.target.value)} onKeyDown={e => e.key === 'Enter' && addCustomVehicle()} className={`w-full ${theme.input} rounded-xl pl-9 pr-3 py-2 text-sm outline-none`} />
                           </div>
-                          <button onClick={addCustomVehicle} className="bg-white/10 hover:bg-white/20 text-white px-4 rounded-xl text-sm font-bold transition-colors border border-white/20 shadow-sm">Hinzufügen</button>
+                          <button onClick={addCustomVehicle} className={`px-4 rounded-xl text-sm font-bold transition-colors border shadow-sm ${isDark ? 'bg-white/10 hover:bg-white/20 text-white border-white/20' : 'bg-white/60 hover:bg-white border-slate-300 text-slate-800'}`}>Hinzufügen</button>
                         </div>
                       </div>
                     )}
                   </div>
 
                   {/* 2. Mitarbeiterausweise */}
-                  <div className={`border rounded-2xl overflow-hidden transition-all duration-300 backdrop-blur-md ${tasks.mitarbeiter ? 'border-green-500/50 bg-green-500/10' : isDark ? 'border-white/10 bg-white/5' : 'border-slate-200 bg-white/40'}`}>
-                    <div className="p-4 flex items-center justify-between cursor-pointer hover:bg-white/5" onClick={() => setExpandedCard(expandedCard === 'mitarbeiter' ? null : 'mitarbeiter')}>
+                  <div className={`border rounded-2xl overflow-hidden transition-all duration-300 backdrop-blur-md ${tasks.mitarbeiter ? 'border-green-500/50 bg-green-500/10' : isDark ? 'border-white/10 bg-white/5' : 'border-white/40 bg-white/30'}`}>
+                    <div className="p-4 flex items-center justify-between cursor-pointer hover:bg-white/10" onClick={() => setExpandedCard(expandedCard === 'mitarbeiter' ? null : 'mitarbeiter')}>
                       <div className="flex flex-col sm:flex-row sm:items-center gap-3 w-full">
                         
                         <div className="flex items-center gap-3 cursor-pointer z-10 p-1 -ml-1 rounded-lg hover:bg-black/10" onClick={(e) => handleToggleTask('mitarbeiter', e)} title="Klicken, wenn physische Ausweise eingetroffen sind">
-                           {tasks.mitarbeiter ? <CheckCircle2 className="text-green-500 shadow-sm rounded-full shrink-0" /> : <Circle className="text-slate-500 shrink-0 hover:text-green-400 transition-colors" />}
+                           {tasks.mitarbeiter ? <CheckCircle2 className="text-green-500 shadow-sm rounded-full shrink-0" /> : <Circle className="text-slate-500 shrink-0 hover:text-green-500 transition-colors" />}
                            <span className="font-bold">Mitarbeiterausweise erhalten</span>
                         </div>
 
@@ -1074,12 +1072,12 @@ export default function App() {
                         {employees.length > 0 && (
                           <div className="flex flex-wrap gap-1 sm:ml-auto pr-2">
                             {employees.slice(0, 3).map(emp => (
-                              <span key={emp} className={`flex items-center gap-1 text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full border ${isDark ? 'bg-black/30 border-white/10 text-slate-300' : 'bg-white/60 border-slate-200 text-slate-600'}`}>
+                              <span key={emp} className={`flex items-center gap-1 text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full border ${isDark ? 'bg-black/30 border-white/10 text-slate-300' : 'bg-white/60 border-slate-300 text-slate-700'}`}>
                                 <IdCard size={10} /> {emp}
                               </span>
                             ))}
                             {employees.length > 3 && (
-                              <span className={`text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full border ${isDark ? 'bg-black/30 border-white/10 text-slate-300' : 'bg-white/60 border-slate-200 text-slate-600'}`}>+{employees.length - 3}</span>
+                              <span className={`text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full border ${isDark ? 'bg-black/30 border-white/10 text-slate-300' : 'bg-white/60 border-slate-300 text-slate-700'}`}>+{employees.length - 3}</span>
                             )}
                           </div>
                         )}
@@ -1089,10 +1087,10 @@ export default function App() {
                     </div>
                     
                     {expandedCard === 'mitarbeiter' && (
-                      <div className={`p-4 border-t ${isDark ? 'border-white/10 bg-black/20' : 'border-slate-200 bg-slate-50/50'}`}>
+                      <div className={`p-4 border-t ${isDark ? 'border-white/10 bg-black/20' : 'border-slate-300/50 bg-slate-200/50'}`}>
                         
                         <div className="mb-4">
-                          <p className="text-[10px] font-bold uppercase tracking-wider opacity-50 mb-3 pl-1">Schnellauswahl (Klicken für PDF)</p>
+                          <p className="text-[10px] font-bold uppercase tracking-wider opacity-60 mb-3 pl-1">Schnellauswahl (Klicken für PDF)</p>
                           <div className="flex flex-wrap gap-2">
                             {Array.from(new Set([...defaultEmployees, ...employees])).map(emp => {
                                const isSelected = employees.includes(emp);
@@ -1100,7 +1098,7 @@ export default function App() {
                                  <button 
                                    key={emp} 
                                    onClick={() => toggleEmployee(emp)}
-                                   className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all duration-300 border ${isSelected ? (isDark ? 'bg-orange-500/90 text-white border-orange-400/50 shadow-[0_0_10px_rgba(249,115,22,0.3)]' : 'bg-orange-500 text-white border-orange-600 shadow-md') : (isDark ? 'bg-black/30 border-white/10 text-slate-300 hover:bg-white/10' : 'bg-white/60 border-slate-200 text-slate-600 hover:bg-white')}`}
+                                   className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all duration-300 border ${isSelected ? (isDark ? 'bg-orange-500/90 text-white border-orange-400/50 shadow-[0_0_10px_rgba(249,115,22,0.3)]' : 'bg-orange-500 text-white border-orange-600 shadow-md') : (isDark ? 'bg-black/30 border-white/10 text-slate-300 hover:bg-white/10' : 'bg-white/60 border-slate-300 text-slate-700 hover:bg-white')}`}
                                  >
                                    <IdCard size={12} className={isSelected ? "text-white" : "opacity-50"} /> {emp}
                                  </button>
@@ -1114,59 +1112,59 @@ export default function App() {
                             <IdCard size={16} className="absolute left-3 top-1/2 transform -translate-y-1/2 opacity-50" />
                             <input type="text" placeholder="Neuer Name (z.B. Max Mustermann)" value={newEmployee} onChange={e => setNewEmployee(e.target.value)} onKeyDown={e => e.key === 'Enter' && addCustomEmployee()} className={`w-full ${theme.input} rounded-xl pl-9 pr-3 py-2 text-sm outline-none`} />
                           </div>
-                          <button onClick={addCustomEmployee} className="bg-white/10 hover:bg-white/20 text-white px-4 rounded-xl text-sm font-bold transition-colors border border-white/20 shadow-sm">Hinzufügen</button>
+                          <button onClick={addCustomEmployee} className={`px-4 rounded-xl text-sm font-bold transition-colors border shadow-sm ${isDark ? 'bg-white/10 hover:bg-white/20 text-white border-white/20' : 'bg-white/60 hover:bg-white border-slate-300 text-slate-800'}`}>Hinzufügen</button>
                         </div>
                       </div>
                     )}
                   </div>
 
                   {/* 3. Datensatz */}
-                  <div className={`p-4 rounded-2xl border transition-all duration-300 shadow-sm flex flex-col xl:flex-row xl:items-center justify-between gap-4 backdrop-blur-md ${tasks.datensatz ? 'border-green-500/50 bg-green-500/10' : isDark ? 'border-white/10 bg-white/5' : 'border-slate-200 bg-white/40'}`}>
+                  <div className={`p-4 rounded-2xl border transition-all duration-300 shadow-sm flex flex-col xl:flex-row xl:items-center justify-between gap-4 backdrop-blur-md ${tasks.datensatz ? 'border-green-500/50 bg-green-500/10' : isDark ? 'border-white/10 bg-white/5' : 'border-white/40 bg-white/30'}`}>
                     <div className="flex items-center gap-3">
-                      {tasks.datensatz ? <CheckCircle2 className="text-green-500 shadow-sm rounded-full" /> : <AlertCircle className="text-red-400" />}
+                      {tasks.datensatz ? <CheckCircle2 className="text-green-500 shadow-sm rounded-full" /> : <AlertCircle className="text-red-500" />}
                       <span className="font-bold">Datensatz erhalten</span>
                     </div>
                     {files?.datensatz ? (
                       <div className={`flex flex-wrap items-center gap-2 px-3 py-1.5 rounded-xl ${theme.input}`}>
-                        <span className="text-xs text-green-400 font-bold truncate max-w-[100px]">{files.datensatz?.name || 'Datei'}</span>
+                        <span className="text-xs text-green-500 font-bold truncate max-w-[100px]">{files.datensatz?.name || 'Datei'}</span>
                         <div className="flex gap-1 ml-auto">
                            <a href={files.datensatz?.url || '#'} download={files.datensatz?.name || 'download'} target="_blank" rel="noopener noreferrer" className="p-1.5 bg-blue-500/80 hover:bg-blue-500 text-white rounded-lg transition-colors border border-blue-400/50" title="Herunterladen"><Download size={14}/></a>
                            <button onClick={() => removeFile('datensatz')} className="p-1.5 bg-red-500/80 hover:bg-red-500 text-white rounded-lg transition-colors border border-red-400/50" title="Löschen"><Trash2 size={14}/></button>
                         </div>
                       </div>
                     ) : (
-                      <label className={`flex items-center gap-2 px-4 py-2 rounded-xl cursor-pointer text-sm font-bold transition-all hover:scale-105 shadow-sm border ${isDark ? 'bg-white/10 hover:bg-white/20 text-white border-white/20' : 'bg-white border-slate-300 text-slate-700'}`}>
+                      <label className={`flex items-center gap-2 px-4 py-2 rounded-xl cursor-pointer text-sm font-bold transition-all hover:scale-105 shadow-sm border ${isDark ? 'bg-white/10 hover:bg-white/20 text-white border-white/20' : 'bg-white/60 hover:bg-white border-slate-300 text-slate-800'}`}>
                         <UploadCloud size={16} /> Upload <input type="file" className="hidden" onChange={(e) => handleFileUpload('datensatz', e)} />
                       </label>
                     )}
                   </div>
 
                   {/* 4. Ankündigung */}
-                  <div className={`p-4 rounded-2xl border transition-all duration-300 shadow-sm flex flex-col xl:flex-row xl:items-center justify-between gap-4 backdrop-blur-md ${tasks.ankuendigung ? 'border-green-500/50 bg-green-500/10' : isDark ? 'border-white/10 bg-white/5' : 'border-slate-200 bg-white/40'}`}>
+                  <div className={`p-4 rounded-2xl border transition-all duration-300 shadow-sm flex flex-col xl:flex-row xl:items-center justify-between gap-4 backdrop-blur-md ${tasks.ankuendigung ? 'border-green-500/50 bg-green-500/10' : isDark ? 'border-white/10 bg-white/5' : 'border-white/40 bg-white/30'}`}>
                     <div className="flex items-center gap-3">
-                      {tasks.ankuendigung ? <CheckCircle2 className="text-green-500 shadow-sm rounded-full" /> : <AlertCircle className="text-red-400" />}
+                      {tasks.ankuendigung ? <CheckCircle2 className="text-green-500 shadow-sm rounded-full" /> : <AlertCircle className="text-red-500" />}
                       <span className="font-bold">Ankündigung freigegeben</span>
                     </div>
                     {files?.ankuendigung ? (
                       <div className={`flex flex-wrap items-center gap-2 px-3 py-1.5 rounded-xl ${theme.input}`}>
-                        <span className="text-xs text-green-400 font-bold truncate max-w-[100px]">{files.ankuendigung?.name || 'Datei'}</span>
+                        <span className="text-xs text-green-500 font-bold truncate max-w-[100px]">{files.ankuendigung?.name || 'Datei'}</span>
                         <div className="flex gap-1 ml-auto">
                            <button onClick={() => setPreviewFile(files.ankuendigung)} className="p-1.5 bg-blue-500/80 hover:bg-blue-500 text-white rounded-lg transition-colors border border-blue-400/50" title="Vorschau ansehen"><Eye size={14}/></button>
-                           <a href={files.ankuendigung?.url || '#'} download={files.ankuendigung?.name || 'download'} target="_blank" rel="noopener noreferrer" className="p-1.5 bg-white/10 hover:bg-white/20 text-white rounded-lg transition-colors border border-white/20" title="Herunterladen"><Download size={14}/></a>
+                           <a href={files.ankuendigung?.url || '#'} download={files.ankuendigung?.name || 'download'} target="_blank" rel="noopener noreferrer" className={`p-1.5 rounded-lg transition-colors border shadow-sm ${isDark ? 'bg-white/10 hover:bg-white/20 text-white border-white/20' : 'bg-white/60 hover:bg-white text-slate-800 border-slate-300'}`} title="Herunterladen"><Download size={14}/></a>
                            <button onClick={() => removeFile('ankuendigung')} className="p-1.5 bg-red-500/80 hover:bg-red-500 text-white rounded-lg transition-colors border border-red-400/50" title="Löschen"><Trash2 size={14}/></button>
                         </div>
                       </div>
                     ) : (
-                      <label className={`flex items-center gap-2 px-4 py-2 rounded-xl cursor-pointer text-sm font-bold transition-all hover:scale-105 shadow-sm border ${isDark ? 'bg-white/10 hover:bg-white/20 text-white border-white/20' : 'bg-white border-slate-300 text-slate-700'}`}>
+                      <label className={`flex items-center gap-2 px-4 py-2 rounded-xl cursor-pointer text-sm font-bold transition-all hover:scale-105 shadow-sm border ${isDark ? 'bg-white/10 hover:bg-white/20 text-white border-white/20' : 'bg-white/60 hover:bg-white border-slate-300 text-slate-800'}`}>
                         <UploadCloud size={16} /> Upload <input type="file" className="hidden" accept=".pdf" onChange={(e) => handleFileUpload('ankuendigung', e)} />
                       </label>
                     )}
                   </div>
 
                   {/* 5. Import */}
-                  <div onClick={() => handleToggleTask('datenimport', { stopPropagation: () => {} })} className={`p-4 rounded-2xl border transition-all duration-300 shadow-sm flex items-center justify-between cursor-pointer hover:scale-[1.02] backdrop-blur-md ${tasks.datenimport ? 'border-green-500/50 bg-green-500/10' : isDark ? 'border-white/10 bg-white/5 hover:bg-white/10' : 'border-slate-200 bg-white/40 hover:bg-white/60'}`}>
+                  <div onClick={() => handleToggleTask('datenimport', { stopPropagation: () => {} })} className={`p-4 rounded-2xl border transition-all duration-300 shadow-sm flex items-center justify-between cursor-pointer hover:scale-[1.02] backdrop-blur-md ${tasks.datenimport ? 'border-green-500/50 bg-green-500/10' : isDark ? 'border-white/10 bg-white/5 hover:bg-white/10' : 'border-white/40 bg-white/30 hover:bg-white/50'}`}>
                     <div className="flex items-center gap-3">
-                      {tasks.datenimport ? <CheckCircle2 className="text-green-500 shadow-sm rounded-full" /> : <AlertCircle className="text-red-400" />}
+                      {tasks.datenimport ? <CheckCircle2 className="text-green-500 shadow-sm rounded-full" /> : <AlertCircle className="text-red-500" />}
                       <span className="font-bold">Datensatz importiert</span>
                     </div>
                     {!tasks.datenimport && <span className="text-xs opacity-50 font-bold">Klicken zum Abhaken</span>}
@@ -1176,14 +1174,14 @@ export default function App() {
 
               {/* NOTIZEN & ZUSATZDOKUMENTE */}
               <div className={`${theme.card} rounded-3xl p-6 md:p-8 ${theme.hover3D}`}>
-                <h2 className={`${theme.title} text-xl font-bold mb-6 flex items-center gap-2 border-b ${isDark ? 'border-white/10' : 'border-slate-200'} pb-4`}>
-                  <MessageSquare className="text-pink-400" /> Notizen & Dokumente
+                <h2 className={`${theme.title} text-xl font-bold mb-6 flex items-center gap-2 border-b ${isDark ? 'border-white/10' : 'border-slate-300/50'} pb-4`}>
+                  <MessageSquare className="text-pink-500" /> Notizen & Dokumente
                 </h2>
                 <textarea placeholder="Projekt-Infos, Absprachen, Codes für den Schlüsseltresor..." value={notes} onChange={(e) => setNotes(e.target.value)} className={`w-full ${theme.input} rounded-2xl p-5 text-sm outline-none resize-none min-h-[120px] mb-6 leading-relaxed`}></textarea>
                 <div>
                   <div className="flex items-center justify-between mb-4">
                     <span className="text-sm font-bold uppercase tracking-wider opacity-70">Zusätzliche Dateien</span>
-                    <label className={`flex items-center gap-2 px-3 py-1.5 rounded-xl cursor-pointer text-xs font-bold transition-all hover:scale-105 shadow-sm border ${isDark ? 'bg-white/10 hover:bg-white/20 text-white border-white/20' : 'bg-white border-slate-300 text-slate-700'}`}>
+                    <label className={`flex items-center gap-2 px-3 py-1.5 rounded-xl cursor-pointer text-xs font-bold transition-all hover:scale-105 shadow-sm border ${isDark ? 'bg-white/10 hover:bg-white/20 text-white border-white/20' : 'bg-white/60 hover:bg-white border-slate-300 text-slate-800'}`}>
                       <Paperclip size={14} /> Hinzufügen <input type="file" multiple className="hidden" onChange={handleExtraFileUpload} />
                     </label>
                   </div>
@@ -1196,7 +1194,7 @@ export default function App() {
                              {(file?.type?.includes('pdf') || file?.type?.includes('image')) && (
                                <button onClick={() => setPreviewFile(file)} className="p-1.5 bg-blue-500/80 hover:bg-blue-500 text-white rounded-lg transition-colors border border-blue-400/50" title="Vorschau ansehen"><Eye size={14}/></button>
                              )}
-                             <a href={file?.url || '#'} download={file?.name || 'download'} target="_blank" rel="noopener noreferrer" className="p-1.5 bg-white/10 hover:bg-white/20 text-white rounded-lg transition-colors border border-white/20" title="Herunterladen"><Download size={14}/></a>
+                             <a href={file?.url || '#'} download={file?.name || 'download'} target="_blank" rel="noopener noreferrer" className={`p-1.5 rounded-lg transition-colors border shadow-sm ${isDark ? 'bg-white/10 hover:bg-white/20 text-white border-white/20' : 'bg-white/60 hover:bg-white text-slate-800 border-slate-300'}`} title="Herunterladen"><Download size={14}/></a>
                              <button onClick={() => removeExtraFile(file.id)} className="p-1.5 bg-red-500/80 hover:bg-red-500 text-white rounded-lg transition-colors border border-red-400/50" title="Löschen"><Trash2 size={14}/></button>
                           </div>
                        </div>
