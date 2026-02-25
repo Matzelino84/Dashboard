@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { CheckCircle2, Circle, Calendar as CalendarIcon, UploadCloud, Plus, Trash2, ChevronDown, ChevronUp, Users, Building, FileText, Wrench, AlertCircle, Sun, Moon, Menu, X, Briefcase, Download, Eye, Receipt, MessageSquare, Paperclip, RefreshCw, User, Phone, Mail, LogOut, Lock, Car, IdCard, MapPin, Map, Package } from 'lucide-react';
+import { CheckCircle2, Circle, Calendar as CalendarIcon, UploadCloud, Plus, Trash2, ChevronDown, ChevronUp, Users, Building, FileText, Wrench, AlertCircle, Sun, Moon, Menu, X, Briefcase, Download, Eye, Receipt, MessageSquare, Paperclip, RefreshCw, User, Phone, Mail, LogOut, Lock, Car, IdCard, MapPin, Map, Package, Home } from 'lucide-react';
 import { supabase } from './supabaseClient';
 
 export default function App() {
@@ -13,6 +13,7 @@ export default function App() {
   // --- APP STATE MANAGEMENT ---
   const [isDark, setIsDark] = useState(true); 
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [showHome, setShowHome] = useState(true); 
   const [previewFile, setPreviewFile] = useState(null); 
   
   const [currentProjectId, setCurrentProjectId] = useState(null);
@@ -24,13 +25,7 @@ export default function App() {
   const [companyName, setCompanyName] = useState('Neues Projekt');
   const [customerData, setCustomerData] = useState({ street: '', city: '', phone: '', email: '' });
   const [contacts, setContacts] = useState([{ id: 1, name: '', position: '', phone: '', email: '' }]);
-  
-  // ERWEITERT UM LAGERUNG, ALTZÄHLER UND ADRESSE
-  const [orderDetails, setOrderDetails] = useState({ 
-    quantity: '', conditions: '', eichaustausch: false, funkumruestung: false, other: false, 
-    oldMeterDisposal: null, storageLocation: null, storageAddress: '' 
-  });
-  
+  const [orderDetails, setOrderDetails] = useState({ quantity: '', conditions: '', eichaustausch: false, funkumruestung: false, other: false, oldMeterDisposal: null, storageLocation: null, storageAddress: '' });
   const [software, setSoftware] = useState(null);
   const [repairsApproved, setRepairsApproved] = useState(null);
   const [meterInfo, setMeterInfo] = useState({ newManufacturer: '', newType: '', currentInstalled: '' });
@@ -86,7 +81,7 @@ export default function App() {
 
   // --- AUTO-SYNC MIT DATENBANK ---
   useEffect(() => {
-    if (!session || isInitialLoad) { setIsInitialLoad(false); return; }
+    if (!session || isInitialLoad || showHome) { setIsInitialLoad(false); return; }
     if (!companyName || companyName === 'Neues Projekt') return;
 
     setSyncStatus('saving');
@@ -127,12 +122,21 @@ export default function App() {
       }
     }, 1500); 
     return () => clearTimeout(timer);
-  }, [companyName, customerData, contacts, orderDetails, software, repairsApproved, meterInfo, vehicles, employees, tasks, lvItems, notes, kickoffDate, progressPercentage, isReadyToStart, files, extraFiles, session]);
+  }, [companyName, customerData, contacts, orderDetails, software, repairsApproved, meterInfo, vehicles, employees, tasks, lvItems, notes, kickoffDate, progressPercentage, isReadyToStart, files, extraFiles, session, showHome]);
 
   const fetchProjectsFromSupabase = async () => {
     if (!session) return;
-    const { data } = await supabase.from('projects').select('id, company_name, progress_percentage, is_ready_to_start').order('updated_at', { ascending: false });
-    if (data) setProjectsList(data);
+    // HIER WIRD NUN AUCH DAS KICKOFF-DATUM GELADEN
+    const { data } = await supabase.from('projects').select('id, company_name, progress_percentage, is_ready_to_start, kickoff_date');
+    if (data) {
+      // SORTIERUNG NACH DATUM (Nächstes zuerst)
+      const sortedData = data.sort((a, b) => {
+        if (!a.kickoff_date) return 1; // Projekte ohne Datum ans Ende
+        if (!b.kickoff_date) return -1;
+        return new Date(a.kickoff_date) - new Date(b.kickoff_date);
+      });
+      setProjectsList(sortedData);
+    }
   };
 
   useEffect(() => { 
@@ -184,6 +188,7 @@ export default function App() {
 
       if (pathsToDelete.length > 0) { await supabase.storage.from('project-files').remove(pathsToDelete); }
       await supabase.from('projects').delete().eq('id', id);
+      
       if(currentProjectId === id) resetToNewProject();
       fetchProjectsFromSupabase();
     }
@@ -259,9 +264,7 @@ export default function App() {
     }
   };
 
-  const dateObj = kickoffDate ? new Date(kickoffDate) : null;
-  const day = dateObj ? dateObj.getDate().toString().padStart(2, '0') : '--';
-  const month = dateObj ? dateObj.toLocaleString('de-DE', { month: 'short' }).toUpperCase() : '--';
+  // DATUMS HILFSFUNKTION (Für das Dashboard und das Einzelprojekt)
   const getWeekNumber = (d) => {
     if (!d) return '--';
     const date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
@@ -270,6 +273,10 @@ export default function App() {
     const yearStart = new Date(Date.UTC(date.getUTCFullYear(), 0, 1));
     return Math.ceil((((date - yearStart) / 86400000) + 1) / 7);
   };
+
+  const dateObj = kickoffDate ? new Date(kickoffDate) : null;
+  const day = dateObj ? dateObj.getDate().toString().padStart(2, '0') : '--';
+  const month = dateObj ? dateObj.toLocaleString('de-DE', { month: 'short' }).toUpperCase() : '--';
   const kw = getWeekNumber(dateObj);
 
   // --- THEME STYLING ---
@@ -284,7 +291,7 @@ export default function App() {
   };
 
   // ==========================================
-  // LOGIN SCREEN
+  // VIEW 1: LOGIN SCREEN
   // ==========================================
   if (!session) {
     return (
@@ -327,7 +334,107 @@ export default function App() {
   }
 
   // ==========================================
-  // MAIN APP
+  // VIEW 2: DASHBOARD (HOME SCREEN)
+  // ==========================================
+  if (showHome) {
+    return (
+      <div className={`min-h-screen ${theme.bg} ${theme.text} font-sans selection:bg-green-500/30 transition-colors duration-500 p-4 md:p-8`}>
+        <div className="max-w-7xl mx-auto space-y-8">
+          
+          {/* HEADER */}
+          <div className={`${theme.card} p-6 md:p-8 rounded-3xl border relative overflow-hidden transition-colors duration-500 flex flex-col md:flex-row md:items-center justify-between gap-4`}>
+            <div className="absolute top-0 left-0 w-2 h-full bg-gradient-to-b from-blue-400 to-blue-600 shadow-[0_0_15px_rgba(59,130,246,0.5)]"></div>
+            
+            <h1 className={`text-3xl md:text-4xl font-black flex items-center gap-4 ml-4 ${theme.title}`}>
+              <img src="/Messtex_Icon_Logo_RGB.png" alt="Messtex Logo" className="h-10 w-10 object-contain drop-shadow-lg" />
+              Projekt Übersicht
+            </h1>
+            
+            <div className="flex items-center gap-3">
+              <button onClick={() => setIsDark(!isDark)} className={`p-3 rounded-2xl transition-all duration-300 hover:scale-110 ${isDark ? 'bg-[#2a2a2a] text-yellow-400 shadow-[inset_2px_2px_5px_rgba(0,0,0,0.5)]' : 'bg-white text-gray-800 shadow-[5px_5px_10px_rgba(163,177,198,0.5),-5px_-5px_10px_rgba(255,255,255,0.8)]'}`} title="Theme wechseln">
+                {isDark ? <Sun size={24} /> : <Moon size={24} />}
+              </button>
+              <button onClick={handleLogout} className={`p-3 rounded-2xl transition-all duration-300 hover:scale-110 hover:text-red-500 ${isDark ? 'bg-[#2a2a2a] text-gray-400 shadow-[inset_2px_2px_5px_rgba(0,0,0,0.5)]' : 'bg-white text-gray-600 shadow-[5px_5px_10px_rgba(163,177,198,0.5),-5px_-5px_10px_rgba(255,255,255,0.8)]'}`} title="Abmelden">
+                <LogOut size={24} />
+              </button>
+            </div>
+          </div>
+
+          {/* PROJEKT GRID */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            
+            {/* Karte: NEUES PROJEKT */}
+            <div onClick={() => { resetToNewProject(); setShowHome(false); }} className={`${theme.card} p-8 rounded-3xl border-2 border-dashed flex flex-col items-center justify-center cursor-pointer transition-all hover:scale-105 group min-h-[220px] ${isDark ? 'border-[#444] hover:border-green-500' : 'border-gray-400 hover:border-green-500'}`}>
+               <Plus size={56} className="text-gray-400 group-hover:text-green-500 transition-colors mb-4 drop-shadow-md" />
+               <span className="font-bold text-lg text-gray-500 group-hover:text-green-500 transition-colors uppercase tracking-wider">Neues Projekt</span>
+            </div>
+
+            {/* Karten: BESTEHENDE PROJEKTE */}
+            {projectsList.map(p => {
+               // Datum formatieren für die Mini-Klappuhr
+               const pDate = p.kickoff_date ? new Date(p.kickoff_date) : null;
+               const pDay = pDate ? pDate.getDate().toString().padStart(2, '0') : '--';
+               const pMonth = pDate ? pDate.toLocaleString('de-DE', { month: 'short' }).toUpperCase() : '--';
+               const pKw = getWeekNumber(pDate);
+
+               return (
+                 <div key={p.id} onClick={() => { loadProject(p.id); setShowHome(false); }} className={`${theme.card} p-6 rounded-3xl border transition-all hover:scale-105 cursor-pointer relative group flex flex-col justify-between min-h-[220px] ${isDark ? 'border-[#333] hover:border-blue-500' : 'border-transparent hover:border-blue-500'}`}>
+                    <button onClick={(e) => deleteProject(e, p.id)} className="absolute top-4 right-4 p-2 text-gray-500 hover:bg-red-500/20 hover:text-red-500 rounded-xl opacity-0 group-hover:opacity-100 transition-all z-10">
+                      <Trash2 size={20} />
+                    </button>
+                    
+                    <div>
+                       <h3 className={`font-black text-2xl mb-4 pr-10 truncate ${theme.title}`}>{p.company_name}</h3>
+                       
+                       <div className="flex items-center justify-between gap-2 flex-wrap">
+                         {p.is_ready_to_start ? (
+                            <span className="inline-flex items-center gap-1.5 bg-green-500/10 text-green-500 border border-green-500/20 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider shadow-sm"><CheckCircle2 size={12}/> Startklar</span>
+                         ) : (
+                            <span className="inline-flex items-center gap-1.5 bg-orange-500/10 text-orange-500 border border-orange-500/20 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider shadow-sm"><Circle size={12}/> In Bearbeitung</span>
+                         )}
+
+                         {/* MINI KLAPPUHR */}
+                         {pDate ? (
+                           <div className="flex items-center gap-1.5 ml-auto">
+                             <span className="text-[10px] font-bold text-purple-500 bg-purple-500/10 border border-purple-500/20 px-2 py-1 rounded-full uppercase tracking-wider">KW {pKw}</span>
+                             <div className={`flex gap-0.5 p-0.5 rounded-lg border shadow-sm ${isDark ? 'bg-[#1a1a1a] border-[#333]' : 'bg-gray-100 border-gray-200'}`}>
+                               <div className={`w-6 h-6 flex items-center justify-center rounded overflow-hidden relative ${theme.flipCard}`}>
+                                 <div className="absolute top-1/2 left-0 w-full h-[1px] bg-black/20 z-10"></div>
+                                 <span className="text-[10px] font-black z-0">{pDay}</span>
+                               </div>
+                               <div className={`w-6 h-6 flex items-center justify-center rounded overflow-hidden relative ${theme.flipCard}`}>
+                                 <div className="absolute top-1/2 left-0 w-full h-[1px] bg-black/20 z-10"></div>
+                                 <span className="text-[9px] font-black z-0">{pMonth}</span>
+                               </div>
+                             </div>
+                           </div>
+                         ) : (
+                           <span className="text-[9px] font-bold opacity-40 ml-auto uppercase tracking-wider mt-1">Kein Startdatum</span>
+                         )}
+                       </div>
+                    </div>
+                    
+                    <div className="mt-6">
+                       <div className="flex justify-between text-xs font-bold opacity-60 mb-2 uppercase tracking-wider">
+                         <span>Fortschritt</span>
+                         <span className={p.progress_percentage === 100 ? 'text-green-500' : ''}>{p.progress_percentage || 0}%</span>
+                       </div>
+                       <div className={`w-full h-2 rounded-full overflow-hidden ${isDark ? 'bg-black/50' : 'bg-gray-300 shadow-inner'}`}>
+                         <div className={`h-full transition-all duration-1000 ${p.progress_percentage === 100 ? 'bg-green-500' : 'bg-blue-500'}`} style={{ width: `${p.progress_percentage || 0}%` }}></div>
+                       </div>
+                    </div>
+                 </div>
+               );
+            })}
+          </div>
+          
+        </div>
+      </div>
+    );
+  }
+
+  // ==========================================
+  // VIEW 3: PROJECT DETAIL SCREEN
   // ==========================================
   return (
     <div className={`min-h-screen ${theme.bg} ${theme.text} font-sans selection:bg-green-500/30 transition-colors duration-500 relative`}>
@@ -362,12 +469,20 @@ export default function App() {
       <div className={`fixed top-0 left-0 h-full w-80 z-50 transform transition-transform duration-500 ease-[cubic-bezier(0.4,0,0.2,1)] ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} ${isDark ? 'bg-[#1a1a1a] border-r border-[#333] shadow-[10px_0_30px_rgba(0,0,0,0.8)]' : 'bg-[#e0e5ec] border-r border-white shadow-[10px_0_30px_rgba(163,177,198,0.5)]'}`}>
         <div className="p-6 flex justify-between items-center border-b border-gray-500/20">
           <h2 className={`text-xl font-bold flex items-center gap-3 ${theme.title}`}>
-            <img src="/Messtex_Icon_Logo_RGB.png" alt="Logo" className="h-6 w-6 object-contain" /> Alle Projekte
+            <img src="/Messtex_Icon_Logo_RGB.png" alt="Logo" className="h-6 w-6 object-contain" /> Projekte
           </h2>
           <button onClick={() => setIsSidebarOpen(false)} className={`p-2 rounded-full transition-colors hover:scale-110 ${isDark ? 'hover:bg-[#333] text-gray-400' : 'hover:bg-white text-gray-600'}`}><X size={24} /></button>
         </div>
         <div className="p-4 space-y-4 overflow-y-auto h-[calc(100vh-80px)] custom-scrollbar">
-           <button onClick={resetToNewProject} className={`w-full py-3 rounded-xl border-2 border-dashed font-bold flex items-center justify-center gap-2 transition-all hover:scale-105 ${isDark ? 'border-[#444] text-gray-400 hover:border-green-500 hover:text-green-500 bg-[#121212]' : 'border-gray-400 text-gray-600 hover:border-green-600 hover:text-green-600 bg-transparent'}`}><Plus size={18} /> Neues Projekt</button>
+           
+           {/* ZURÜCK ZUM DASHBOARD BUTTON */}
+           <button onClick={() => { setShowHome(true); setIsSidebarOpen(false); }} className={`w-full py-3 rounded-xl border font-bold flex items-center justify-center gap-2 transition-all hover:scale-105 shadow-sm ${isDark ? 'border-[#444] bg-[#222] hover:bg-[#333] text-white' : 'border-gray-300 bg-white hover:bg-gray-50 text-gray-800'}`}>
+             <Home size={18} /> Zurück zur Übersicht
+           </button>
+
+           <div className="my-4 border-b border-gray-500/20"></div>
+
+           <button onClick={() => { resetToNewProject(); setIsSidebarOpen(false); }} className={`w-full py-3 rounded-xl border-2 border-dashed font-bold flex items-center justify-center gap-2 transition-all hover:scale-105 ${isDark ? 'border-[#444] text-gray-400 hover:border-green-500 hover:text-green-500 bg-[#121212]' : 'border-gray-400 text-gray-600 hover:border-green-600 hover:text-green-600 bg-transparent'}`}><Plus size={18} /> Neues Projekt</button>
            
            {projectsList.length === 0 && <p className="text-center text-xs opacity-50 mt-10">Noch keine Projekte in der Datenbank.</p>}
            
@@ -391,14 +506,15 @@ export default function App() {
       <div className="p-4 md:p-8 pb-24">
         <div className="max-w-7xl mx-auto space-y-8">
           
-          {/* HEADER (Ohne Logo) */}
+          {/* HEADER */}
           <div className={`${theme.card} p-8 rounded-3xl border relative overflow-hidden transition-colors duration-500 flex flex-col`}>
             <div className="absolute top-0 left-0 w-2 h-full bg-gradient-to-b from-green-400 to-green-600 shadow-[0_0_15px_rgba(34,197,94,0.5)]"></div>
             
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
               <div className="flex items-center gap-4 w-full">
-                <button onClick={() => setIsSidebarOpen(true)} className={`p-3 rounded-2xl flex-shrink-0 transition-all duration-300 hover:scale-105 ${isDark ? 'bg-[#2a2a2a] text-white shadow-[inset_2px_2px_5px_rgba(0,0,0,0.5)]' : 'bg-white text-gray-800 shadow-[5px_5px_10px_rgba(163,177,198,0.5),-5px_-5px_10px_rgba(255,255,255,0.8)]'}`}><Menu size={28} /></button>
-                <input type="text" value={companyName} onChange={(e) => setCompanyName(e.target.value)} className={`text-4xl md:text-6xl lg:text-7xl font-extrabold bg-transparent border-none outline-none w-full truncate ${isDark ? 'text-white' : 'text-gray-800 drop-shadow-md'}`} placeholder="Firmenname..." />
+                <button onClick={() => setShowHome(true)} className={`p-3 rounded-2xl flex-shrink-0 transition-all duration-300 hover:scale-105 ${isDark ? 'bg-[#2a2a2a] text-white shadow-[inset_2px_2px_5px_rgba(0,0,0,0.5)]' : 'bg-white text-gray-800 shadow-[5px_5px_10px_rgba(163,177,198,0.5),-5px_-5px_10px_rgba(255,255,255,0.8)]'}`} title="Zurück zur Übersicht"><Home size={24} /></button>
+                <button onClick={() => setIsSidebarOpen(true)} className={`p-3 rounded-2xl flex-shrink-0 transition-all duration-300 hover:scale-105 ${isDark ? 'bg-[#2a2a2a] text-white shadow-[inset_2px_2px_5px_rgba(0,0,0,0.5)]' : 'bg-white text-gray-800 shadow-[5px_5px_10px_rgba(163,177,198,0.5),-5px_-5px_10px_rgba(255,255,255,0.8)]'}`} title="Projekte Menü"><Menu size={24} /></button>
+                <input type="text" value={companyName} onChange={(e) => setCompanyName(e.target.value)} className={`text-4xl md:text-5xl lg:text-6xl font-extrabold bg-transparent border-none outline-none w-full truncate ${isDark ? 'text-white' : 'text-gray-800 drop-shadow-md'}`} placeholder="Firmenname..." />
               </div>
               
               <div className="flex flex-col items-end gap-3 flex-shrink-0">
@@ -541,7 +657,7 @@ export default function App() {
                      })}
                   </div>
 
-                  {/* ZEILE 3: Lagerung & Altzähler (NEU) */}
+                  {/* ZEILE 3: Lagerung & Altzähler */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
                     <div>
                       <label className="block text-xs uppercase tracking-wider mb-2 font-bold opacity-70">Lagerung Material</label>
@@ -559,7 +675,7 @@ export default function App() {
                     </div>
                   </div>
 
-                  {/* ADRESSZEILE FÜR LAGERORT (NEU) */}
+                  {/* ADRESSZEILE FÜR LAGERORT */}
                   <div className="relative">
                     <Package size={16} className="absolute left-3 top-1/2 transform -translate-y-1/2 opacity-50" />
                     <input type="text" placeholder="Lagerort des Materials (Straße, PLZ, Ort)" value={orderDetails.storageAddress || ''} onChange={e => setOrderDetails({...orderDetails, storageAddress: e.target.value})} className={`w-full ${theme.input} border rounded-xl pl-9 pr-3 py-3 outline-none transition-all`} />
